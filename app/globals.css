@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #07090e;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+}
+
+body {
+  @apply text-ink-100 font-sans antialiased;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(157, 123, 255, 0.10), transparent 60%),
+    radial-gradient(700px 420px at -10% 110%, rgba(46, 230, 214, 0.07), transparent 60%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(46, 230, 214, 0.3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3647 transparent;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-ink-700/80 bg-ink-900/80 backdrop-blur;
+  }
+  .label {
+    @apply font-mono text-[11px] uppercase tracking-[0.14em] text-ink-400;
+  }
+  .field {
+    @apply w-full rounded-xl border border-ink-700 bg-ink-850 px-3.5 py-2.5 text-sm text-ink-100 placeholder:text-ink-500
+      outline-none transition focus:border-neon-cyan/70 focus:ring-2 focus:ring-neon-cyan/20;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/60 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-700 bg-ink-850 text-ink-200 hover:border-ink-500 hover:text-white;
+  }
+  .btn-primary {
+    @apply btn bg-neon-cyan text-ink-950 hover:brightness-110 shadow-glow;
+  }
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-300 transition hover:bg-ink-700 hover:text-white
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/60;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition;
+  }
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 18px;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: #2c3647;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #2ee6d6;
+  box-shadow: 0 0 10px rgba(46, 230, 214, 0.7);
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: #2c3647;
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #2ee6d6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
