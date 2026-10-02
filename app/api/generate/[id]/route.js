@@ -1,5 +1,6 @@
-import { admin, BUCKETS, withUrls, jsonError } from '@/lib/supabase-admin';
+import { admin, withUrls, jsonError } from '@/lib/supabase-admin';
 import { getPrediction, outputUrl } from '@/lib/replicate';
+import { putObject } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 26;
@@ -39,8 +40,7 @@ export async function GET(_req, { params }) {
     const ext = type.includes('wav') ? 'wav' : 'mp3';
     const path = `ai/${gen.id}.${ext}`;
 
-    const up = await sb.storage.from(BUCKETS.audio).upload(path, bytes, { contentType: type, upsert: true });
-    if (up.error) throw up.error;
+    await putObject(path, new Uint8Array(bytes), type);
 
     const { data: row, error: insErr } = await sb
       .from('sp_tracks')

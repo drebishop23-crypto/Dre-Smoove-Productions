@@ -167,7 +167,7 @@ function UploadModal({ onClose, onUploaded }) {
             <AudioLines className="h-6 w-6" />
           </div>
           <span className="font-semibold text-white">Drop audio files here or click to browse</span>
-          <span className="text-xs text-ink-400">MP3, WAV, M4A, FLAC, AIFF · up to 50 MB each</span>
+          <span className="text-xs text-ink-400">WAV, MP3, M4A, FLAC, AIFF · any length</span>
         </button>
         <input
           ref={inputRef}

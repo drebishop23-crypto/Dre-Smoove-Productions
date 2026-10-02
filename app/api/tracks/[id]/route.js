@@ -1,4 +1,5 @@
 import { admin, BUCKETS, withUrls, jsonError } from '@/lib/supabase-admin';
+import { deleteObject } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export async function DELETE(_req, { params }) {
     const sb = admin();
     const { data: row, error } = await sb.from('sp_tracks').select('*').eq('id', params.id).single();
     if (error) throw error;
-    await sb.storage.from(BUCKETS.audio).remove([row.audio_path]);
+    await deleteObject(row.audio_path).catch(() => {});
     if (row.artwork_path) await sb.storage.from(BUCKETS.artwork).remove([row.artwork_path]);
     const { error: delErr } = await sb.from('sp_tracks').delete().eq('id', params.id);
     if (delErr) throw delErr;

@@ -9,6 +9,8 @@
     "preview:build": "node preview/build.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.658.1",
+    "@aws-sdk/s3-request-presigner": "3.658.1",
     "@supabase/supabase-js": "2.45.4",
     "lucide-react": "0.453.0",
     "next": "14.2.33",

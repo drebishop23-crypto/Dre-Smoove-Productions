@@ -21,7 +21,7 @@ Private AI music studio and recording vault. Next.js 14 (App Router), Tailwind C
 
 To try a newer MiniMax model, change `REPLICATE_SONG_MODEL` (for example `minimax/music-2.6`). It uses the same `prompt` and `lyrics` fields.
 
-Finished audio is copied from Replicate into your private Supabase `sp-audio` bucket right away, because Replicate output links expire.
+Finished audio is copied from Replicate into your private Cloudflare R2 bucket right away, because Replicate output links expire.
 
 ## Setup
 
@@ -54,6 +54,6 @@ Replicate is wired in. To add Stability AI's Stable Audio as a third provider, c
 
 ## Limits worth knowing
 
-- Supabase free plan caps each file at 50 MB (set on the `sp-audio` bucket in the SQL). WAV masters longer than about 4–5 minutes should be uploaded as MP3 or FLAC.
+- Song files are stored in Cloudflare R2: no per-file size limit, 10 GB free, then about $0.015 per GB per month. Streaming and downloads are free.
 - Playback links are signed for 12 hours. Refresh the page if a track stops loading after a long session.
 - WAV download from an MP3 is converted in the browser (16-bit PCM). It is a lossless container around the MP3's quality, not a higher-quality master.
