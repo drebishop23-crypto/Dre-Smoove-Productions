@@ -10,11 +10,12 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   try {
     const { bucket, filename = 'file', contentType } = await req.json();
-    if (!['audio', 'artwork'].includes(bucket)) return jsonError('Unknown bucket.');
+    if (!['audio', 'artwork', 'video'].includes(bucket)) return jsonError('Unknown bucket.');
     const clean = filename.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(-80);
 
-    if (bucket === 'audio') {
-      const path = `uploads/${crypto.randomUUID()}-${clean}`;
+    if (bucket === 'audio' || bucket === 'video') {
+      const folder = bucket === 'audio' ? 'uploads' : 'videos';
+      const path = `${folder}/${crypto.randomUUID()}-${clean}`;
       const url = await uploadUrl(path, contentType);
       return Response.json({ store: 'r2', path, url });
     }

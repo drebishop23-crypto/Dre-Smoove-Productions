@@ -11,7 +11,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.658.1",
     "@aws-sdk/s3-request-presigner": "3.658.1",
+    "@ffmpeg/util": "0.12.2",
     "@supabase/supabase-js": "2.45.4",
+    "jszip": "3.10.1",
     "lucide-react": "0.453.0",
     "next": "14.2.33",
     "react": "18.3.1",

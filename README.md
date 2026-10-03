@@ -12,6 +12,16 @@ Private AI music studio and recording vault. Next.js 14 (App Router), Tailwind C
 - `supabase/schema.sql` — tables, row-level security, private storage buckets.
 - `preview/` — builds the single-file interactive preview (real components + mock backend). Run `npm run preview:build`.
 
+## Features added in update 2
+
+- **Profile** (`/profile`, the home page): Suno-style artist page with photo, banner, bio, genres, platform links, profile views, and a song list with plays and likes.
+- **AI album covers**: in Edit details, click Generate with AI (FLUX schnell on Replicate, about a penny for 4 options).
+- **AI music videos** (`/video/[id]`): one ~5 second Wan 2.2 clip per scene (about 5 cents each), scenes built from the lyrics, then the full-length video is assembled in the browser with ffmpeg (served from `public/ffmpeg`) and saved to R2.
+- **Release & share** (track menu): upload to YouTube and SoundCloud, and download a DistroKid release kit (WAV, 3000×3000 cover, lyrics, details) for Spotify and Apple Music.
+- **Connections** (`/connections`): connect YouTube and SoundCloud with OAuth.
+
+Run `supabase/update-2.sql` once in the Supabase SQL Editor before using these.
+
 ## AI models
 
 | Mode | Model on Replicate | Notes |

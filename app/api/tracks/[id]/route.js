@@ -3,7 +3,10 @@ import { deleteObject } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
-const EDITABLE = ['title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics'];
+const EDITABLE = [
+  'title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics',
+  'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url',
+];
 
 // PATCH /api/tracks/:id — update metadata
 export async function PATCH(req, { params }) {
@@ -12,6 +15,9 @@ export async function PATCH(req, { params }) {
     const patch = {};
     for (const k of EDITABLE) if (k in body) patch[k] = body[k];
     if ('release_date' in patch && !patch.release_date) patch.release_date = null;
+    for (const k of ['spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url']) {
+      if (k in patch) patch[k] = (patch[k] || '').trim() || null;
+    }
     if (!Object.keys(patch).length) return jsonError('Nothing to update.');
     const sb = admin();
 
@@ -39,6 +45,7 @@ export async function DELETE(_req, { params }) {
     const { data: row, error } = await sb.from('sp_tracks').select('*').eq('id', params.id).single();
     if (error) throw error;
     await deleteObject(row.audio_path).catch(() => {});
+    if (row.video_path) await deleteObject(row.video_path).catch(() => {});
     if (row.artwork_path) await sb.storage.from(BUCKETS.artwork).remove([row.artwork_path]);
     const { error: delErr } = await sb.from('sp_tracks').delete().eq('id', params.id);
     if (delErr) throw delErr;

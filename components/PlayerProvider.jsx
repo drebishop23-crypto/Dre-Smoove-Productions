@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '@/lib/api';
 
 const PlayerContext = createContext(null);
 
@@ -77,6 +78,7 @@ export function PlayerProvider({ children }) {
     setDuration(current.duration || 0);
     a.src = current.url;
     a.play().catch(() => setPlaying(false));
+    api.trackStat?.(current.id, 'play').catch?.(() => {});
   }, [current?.id, current?.url]);
 
   useEffect(() => {

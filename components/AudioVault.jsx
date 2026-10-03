@@ -14,6 +14,9 @@ import {
   ImagePlus,
   ListMusic,
   ListPlus,
+  Clapperboard,
+  Send,
+  Sparkles,
   Loader2,
   MoreHorizontal,
   Pause,
@@ -29,6 +32,10 @@ import {
 import { api } from '@/lib/api';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
+import Modal from '@/components/Modal';
+import CoverGenerator from '@/components/CoverGenerator';
+import ReleaseModal from '@/components/ReleaseModal';
+import Link from 'next/link';
 import { decodeFromFile, downloadTrack, formatTime, peaksFromBuffer } from '@/lib/audio';
 
 const AUDIO_ACCEPT = 'audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.aif,.aiff';
@@ -41,36 +48,6 @@ function fmtDate(d) {
 
 function titleFromFile(name) {
   return name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-/* ------------------------------------------------------------------ */
-/* Modal shell                                                         */
-/* ------------------------------------------------------------------ */
-function Modal({ title, onClose, children, footer, wide = false }) {
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-6" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-ink-700 bg-ink-900 shadow-2xl sm:rounded-2xl ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
-      >
-        <div className="flex items-center justify-between border-b border-ink-800 px-5 py-4">
-          <h2 className="font-display text-base font-bold text-white">{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
-        {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink-800 px-5 py-4">{footer}</div>}
-      </div>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -245,6 +222,14 @@ function EditModal({ track, onClose, onSaved }) {
   const [tags, setTags] = useState((track.tags || []).join(', '));
   const [releaseDate, setReleaseDate] = useState(track.release_date ? String(track.release_date).slice(0, 10) : '');
   const [lyrics, setLyrics] = useState(track.lyrics || '');
+  const [links, setLinks] = useState({
+    spotify_url: track.spotify_url || '',
+    apple_music_url: track.apple_music_url || '',
+    soundcloud_url: track.soundcloud_url || '',
+    youtube_url: track.youtube_url || '',
+  });
+  const [current, setCurrent] = useState(track);
+  const [showCoverAI, setShowCoverAI] = useState(false);
   const [artFile, setArtFile] = useState(null);
   const [artPreview, setArtPreview] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -263,6 +248,7 @@ function EditModal({ track, onClose, onSaved }) {
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         release_date: releaseDate || null,
         lyrics: lyrics.trim() ? lyrics : null,
+        ...links,
       });
       if (artFile) ({ track: saved } = await api.uploadArtwork(track.id, artFile));
       onSaved(saved);
@@ -274,7 +260,7 @@ function EditModal({ track, onClose, onSaved }) {
     }
   };
 
-  const previewTrack = artPreview ? { ...track, artwork_url: artPreview } : track;
+  const previewTrack = artPreview ? { ...current, artwork_url: artPreview } : current;
 
   return (
     <Modal
@@ -295,9 +281,12 @@ function EditModal({ track, onClose, onSaved }) {
           <TrackArt track={previewTrack} size={96} rounded="rounded-xl" />
           <div className="flex flex-col gap-2">
             <button type="button" className="btn-ghost" onClick={() => artRef.current?.click()}>
-              <ImagePlus className="h-4 w-4" /> {track.artwork_url || artPreview ? 'Replace artwork' : 'Add artwork'}
+              <ImagePlus className="h-4 w-4" /> {current.artwork_url || artPreview ? 'Upload new artwork' : 'Upload artwork'}
             </button>
-            <span className="text-xs text-ink-500">Square JPG or PNG, 1400px or larger looks best.</span>
+            <button type="button" className="btn-ghost" onClick={() => setShowCoverAI(true)}>
+              <Sparkles className="h-4 w-4 text-gold" /> Generate with AI
+            </button>
+            <span className="text-xs text-ink-500">Square JPG or PNG, 3000px is ideal for Spotify and Apple Music.</span>
             <input
               ref={artRef}
               id="edit-artwork"
@@ -342,6 +331,27 @@ function EditModal({ track, onClose, onSaved }) {
             onChange={(e) => setLyrics(e.target.value)}
           />
         </div>
+        <div>
+          <div className="label mb-2">Where it's released</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['spotify_url', 'Spotify link'],
+              ['apple_music_url', 'Apple Music link'],
+              ['soundcloud_url', 'SoundCloud link'],
+              ['youtube_url', 'YouTube link'],
+            ].map(([k, label]) => (
+              <input
+                key={k}
+                id={`edit-${k}`}
+                aria-label={label}
+                className="field"
+                placeholder={label}
+                value={links[k]}
+                onChange={(e) => setLinks((l) => ({ ...l, [k]: e.target.value }))}
+              />
+            ))}
+          </div>
+        </div>
         {track.source === 'ai' && track.prompt && (
           <div className="rounded-xl border border-ink-700 bg-ink-850 p-3">
             <div className="label mb-1">Original prompt</div>
@@ -350,6 +360,24 @@ function EditModal({ track, onClose, onSaved }) {
         )}
         {error && <p className="text-sm text-neon-pink">{error}</p>}
       </div>
+      {showCoverAI && (
+        <CoverGenerator
+          target="track"
+          trackId={track.id}
+          initialPrompt={[title, (tags || '').split(',')[0], (lyrics || '').split('\n').find((l) => l.trim() && !l.trim().startsWith('['))]
+            .filter(Boolean)
+            .join(', ')}
+          onClose={() => setShowCoverAI(false)}
+          onSaved={(res) => {
+            if (res.track) {
+              setCurrent(res.track);
+              setArtFile(null);
+              setArtPreview(null);
+              onSaved(res.track, { keepOpen: true });
+            }
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -385,7 +413,7 @@ export function LyricsModal({ track, onClose, onEdit }) {
 /* ------------------------------------------------------------------ */
 /* Row menu                                                            */
 /* ------------------------------------------------------------------ */
-function RowMenu({ track, playlists, inPlaylist, onEdit, onLyrics, onAddTo, onRemoveFrom, onDelete }) {
+function RowMenu({ track, playlists, inPlaylist, onEdit, onLyrics, onRelease, onAddTo, onRemoveFrom, onDelete }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('main');
   const [busy, setBusy] = useState(null);
@@ -431,6 +459,12 @@ function RowMenu({ track, playlists, inPlaylist, onEdit, onLyrics, onAddTo, onRe
               </button>
               <button type="button" className={item} onClick={() => { setOpen(false); onLyrics(); }}>
                 <FileText className="h-4 w-4 text-ink-400" /> {track.lyrics ? 'View lyrics' : 'Add lyrics'}
+              </button>
+              <Link href={`/video/${track.id}`} className={item} onClick={() => setOpen(false)}>
+                <Clapperboard className="h-4 w-4 text-gold" /> {track.video_path ? 'Music video' : 'Make AI music video'}
+              </Link>
+              <button type="button" className={item} onClick={() => { setOpen(false); onRelease(); }}>
+                <Send className="h-4 w-4 text-gold" /> Release &amp; share
               </button>
               <button type="button" className={item} onClick={() => setView('playlists')}>
                 <ListPlus className="h-4 w-4 text-ink-400" /> Add to playlist
@@ -576,6 +610,7 @@ export default function AudioVault() {
   const [showUpload, setShowUpload] = useState(false);
   const [editing, setEditing] = useState(null);
   const [viewingLyrics, setViewingLyrics] = useState(null);
+  const [releasing, setReleasing] = useState(null);
   const [newPlaylist, setNewPlaylist] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -922,6 +957,7 @@ export default function AudioVault() {
                   inPlaylist={!!activePlaylist}
                   onEdit={() => setEditing(t)}
                   onLyrics={() => (t.lyrics ? setViewingLyrics(t) : setEditing(t))}
+                  onRelease={() => setReleasing(t)}
                   onAddTo={(pid) => addTo(pid, t.id)}
                   onRemoveFrom={() => activePlaylist && removeFrom(activePlaylist.id, t.id)}
                   onDelete={() => deleteTrack(t)}
@@ -957,6 +993,13 @@ export default function AudioVault() {
         />
       )}
       {editing && <EditModal track={editing} onClose={() => setEditing(null)} onSaved={onSaved} />}
+      {releasing && (
+        <ReleaseModal
+          track={tracks.find((x) => x.id === releasing.id) || releasing}
+          onClose={() => setReleasing(null)}
+          onSaved={onSaved}
+        />
+      )}
       {viewingLyrics && (
         <LyricsModal
           track={tracks.find((x) => x.id === viewingLyrics.id) || viewingLyrics}
