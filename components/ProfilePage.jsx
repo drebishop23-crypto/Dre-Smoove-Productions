@@ -119,8 +119,8 @@ function EditProfile({ profile, onClose, onSaved }) {
           ].map(([field, label, url, ref, target]) => (
             <div key={field} className="rounded-xl border border-ink-700 bg-ink-850 p-3">
               <div className="label mb-2">{label}</div>
-              <div className={`mb-3 overflow-hidden ${target === 'avatar' ? 'h-20 w-20 rounded-full bg-ink-800' : 'h-20 w-full rounded-lg bg-black'}`}>
-                {url && <img src={url} alt="" className={`h-full w-full ${target === 'avatar' ? 'object-cover' : 'object-contain'}`} />}
+              <div className={`mb-3 overflow-hidden ${target === 'avatar' ? 'h-20 w-20 rounded-full bg-ink-800' : 'aspect-square w-32 rounded-lg bg-black sm:aspect-[3/1] sm:w-full'}`}>
+                {url && <img src={url} alt="" className="h-full w-full object-cover" />}
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => ref.current?.click()} disabled={busyImg === field}>
@@ -303,25 +303,21 @@ export default function ProfilePage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       {/* Banner + identity */}
       <section className="overflow-hidden rounded-3xl border border-ink-700 bg-ink-900">
-        <div className="relative h-44 overflow-hidden bg-black sm:h-64">
+        {/* Suno-style hero: the banner fills the whole space and the name sits on top of it.
+            Phones get a tall square hero so a square logo shows in full; wider screens crop to the middle. */}
+        <div className="relative aspect-square overflow-hidden bg-black sm:aspect-auto sm:h-80">
           {profile.banner_url ? (
-            <>
-              {/* Blurred fill behind, full image on top, so any shape (square logo or wide photo) fits whole */}
-              <img src={profile.banner_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl" />
-              <img src={profile.banner_url} alt="" className="relative h-full w-full object-contain" />
-            </>
+            <img src={profile.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
           ) : (
             <div
               className="absolute inset-0"
               style={{ background: 'radial-gradient(120% 140% at 15% 0%, rgba(232,185,74,.35), transparent 55%), radial-gradient(90% 120% at 90% 10%, rgba(157,123,255,.35), transparent 60%), #0b0f16' }}
             />
           )}
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ink-900 to-transparent" />
-        </div>
-        <div className="relative flex flex-col gap-5 px-5 pb-6 pt-5 sm:-mt-20 sm:px-8 sm:pt-0">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-ink-900 via-ink-900/70 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between sm:px-8 sm:pb-6">
             <div className="flex items-end gap-4">
-              <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full bg-ink-800 ring-4 ring-gold/80 sm:h-36 sm:w-36">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-ink-800 ring-4 ring-gold/80 sm:h-28 sm:w-28">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -330,13 +326,13 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
-              <div className="pb-1">
-                <h1 className="font-display text-3xl font-extrabold tracking-tight text-gold sm:text-4xl">{profile.display_name}</h1>
-                <p className="font-mono text-sm text-ink-400">@{profile.handle}</p>
+              <div className="min-w-0 pb-1">
+                <h1 className="font-display text-3xl font-extrabold tracking-tight text-gold drop-shadow-[0_2px_8px_rgba(0,0,0,.8)] sm:text-4xl">{profile.display_name}</h1>
+                <p className="font-mono text-sm text-ink-200 drop-shadow-[0_1px_4px_rgba(0,0,0,.9)]">@{profile.handle}</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="button" className="btn-ghost" onClick={() => setEditing(true)}>
+              <button type="button" className="btn-ghost flex-1 bg-ink-900/70 backdrop-blur sm:flex-none" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" /> Edit profile
               </button>
               <button
@@ -349,7 +345,8 @@ export default function ProfilePage() {
               </button>
             </div>
           </div>
-
+        </div>
+        <div className="relative flex flex-col gap-5 px-5 pb-6 pt-5 sm:px-8">
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map(([label, value, Icon]) => (
               <div key={label} className="rounded-xl bg-ink-850 px-4 py-3">
