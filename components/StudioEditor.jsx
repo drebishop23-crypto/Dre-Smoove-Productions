@@ -13,6 +13,8 @@ import {
   Pause,
   Play,
   Plus,
+  Repeat,
+  Sparkles,
   Save,
   Scissors,
   SkipBack,
@@ -29,7 +31,8 @@ import { usePlayer } from '@/components/PlayerProvider';
 import Modal from '@/components/Modal';
 import TrackArt from '@/components/TrackArt';
 import { decodeFromFile, decodeFromUrl, downloadBlob, encodeWav, formatTime, peaksFromBuffer, safeFilename } from '@/lib/audio';
-import { columns, mixdown } from '@/lib/audioEdit';
+import { mixdown, slice } from '@/lib/audioEdit';
+import { extendWithAI } from '@/lib/aiExtend';
 
 const COLORS = ['#2ee6d6', '#e8b94a', '#ff4fa3', '#9d7bff', '#ffc15e', '#5be37d'];
 const LANE_H = 76;
@@ -60,13 +63,30 @@ function ClipWave({ buffer, offset, duration, width, color }) {
     c.height = h * dpr;
     const g = c.getContext('2d');
     g.scale(c.width / width, dpr);
-    const start = Math.max(0, Math.floor((offset / buffer.duration) * buffer.length));
-    const end = Math.min(buffer.length, Math.floor(((offset + duration) / buffer.duration) * buffer.length));
-    const part = { length: end - start, numberOfChannels: buffer.numberOfChannels, getChannelData: (ch) => buffer.getChannelData(ch).subarray(start, end) };
+    // Each pixel column reads its own stretch of audio; past the end of the file it wraps (loop)
     const n = Math.max(2, Math.floor(Math.min(width, 4000)));
-    const cols = columns(part, n);
+    const d0 = buffer.getChannelData(0);
+    const d1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : d0;
+    const len = buffer.length;
+    const rate = buffer.sampleRate;
+    const cols = new Float32Array(n * 2);
     let peak = 0.05;
-    for (let i = 0; i < cols.length; i++) peak = Math.max(peak, Math.abs(cols[i]));
+    for (let x = 0; x < n; x++) {
+      const a = Math.floor((offset + (x / n) * duration) * rate);
+      const b = Math.floor((offset + ((x + 1) / n) * duration) * rate);
+      let lo = 0;
+      let hi = 0;
+      const stride = Math.max(1, Math.floor((b - a) / 200));
+      for (let j = a; j < b; j += stride) {
+        const k = j % len;
+        const v = (d0[k] + d1[k]) / 2;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      cols[x * 2] = lo;
+      cols[x * 2 + 1] = hi;
+      peak = Math.max(peak, -lo, hi);
+    }
     g.fillStyle = color;
     const mid = h / 2;
     for (let x = 0; x < n; x++) {
@@ -74,6 +94,9 @@ function ClipWave({ buffer, offset, duration, width, color }) {
       const hi = (cols[x * 2 + 1] / peak) * (mid - 2);
       g.fillRect((x / n) * width, mid - hi, Math.max(1, width / n), Math.max(1, hi - lo));
     }
+    // Mark where each loop repeat starts
+    g.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let t = buffer.duration - offset; t < duration; t += buffer.duration) g.fillRect((t / duration) * width, 0, 1, h);
   }, [buffer, offset, duration, width, color]);
   return <canvas ref={ref} style={{ width, height: LANE_H - 22 }} className="block opacity-80" />;
 }
@@ -272,7 +295,13 @@ export default function StudioEditor({ id }) {
         const src = ctx.createBufferSource();
         src.buffer = buf;
         src.connect(g);
-        src.start(t0 + Math.max(0, c.start - from), (c.offset || 0) + skip, Math.max(0.01, c.duration - skip));
+        const loops = (c.offset || 0) + c.duration > buf.duration + 0.02;
+        if (loops) {
+          src.loop = true;
+          src.loopStart = 0;
+          src.loopEnd = buf.duration;
+        }
+        src.start(t0 + Math.max(0, c.start - from), ((c.offset || 0) + skip) % buf.duration, Math.max(0.01, c.duration - skip));
         sources.push(src);
       }
     }
@@ -381,6 +410,47 @@ export default function StudioEditor({ id }) {
     setTracks((ts) => ts.map((l) => (l.id === selected.laneId ? { ...l, clips: l.clips.flatMap((x) => (x.id === c.id ? [a, b] : [x])) } : l)));
   };
 
+  // Add one more repeat of the clip's audio to its end
+  const loopClip = () => {
+    const c = selClip();
+    const buf = c && buffers[c.path];
+    if (!buf) return;
+    updateClip(selected.laneId, c.id, { duration: Math.min(1200, c.duration + (buf.duration - (c.offset || 0))) });
+  };
+
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendSecs, setExtendSecs] = useState(60);
+  const [extendStyle, setExtendStyle] = useState('');
+  const aiExtendClip = async () => {
+    const c = selClip();
+    const buf = c && buffers[c.path];
+    if (!buf) return;
+    const laneId = selected.laneId;
+    setExtendOpen(false);
+    setError(null);
+    pause();
+    try {
+      setBusy('Getting the clip ready');
+      // What you hear in the clip, loops included
+      const loops = (c.offset || 0) + c.duration > buf.duration + 0.02;
+      const visible = loops
+        ? await mixdown([{ buffer: buf, start: 0, offset: c.offset || 0, duration: c.duration, gain: 1, loop: true }], c.duration)
+        : slice(buf, c.offset || 0, (c.offset || 0) + c.duration);
+      const longer = await extendWithAI(visible, extendSecs, { prompt: extendStyle, trackId: c.trackId, onStatus: setBusy });
+      setBusy('Saving the longer clip');
+      const path = await api.uploadAudio(new File([encodeWav(longer)], `${safeFilename(c.name)}-extended.wav`, { type: 'audio/wav' }));
+      bufferCache.set(path, Promise.resolve(longer));
+      setBuffers((b) => ({ ...b, [path]: longer }));
+      updateClip(laneId, c.id, { path, offset: 0, duration: longer.duration, name: `${c.name} (extended)` });
+      setNotice(`Clip is now ${formatTime(longer.duration)} long.`);
+      setTimeout(() => setNotice(null), 3500);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const snapT = (t) => (snap ? Math.round(t * 4) / 4 : t);
 
   // drag / trim clips
@@ -396,13 +466,12 @@ export default function StudioEditor({ id }) {
     const dt = (e.clientX - d.x) / pps;
     const c = d.clip;
     const buf = buffers[c.path];
-    const srcLen = buf?.duration || c.offset + c.duration;
     if (d.mode === 'move') updateClip(d.laneId, c.id, { start: Math.max(0, snapT(c.start + dt)) });
     if (d.mode === 'left') {
       const shift = Math.max(-c.offset, Math.min(c.duration - 0.2, snapT(dt)));
       updateClip(d.laneId, c.id, { start: Math.max(0, c.start + shift), offset: c.offset + shift, duration: c.duration - shift });
     }
-    if (d.mode === 'right') updateClip(d.laneId, c.id, { duration: Math.max(0.2, Math.min(srcLen - c.offset, snapT(c.duration + dt))) });
+    if (d.mode === 'right') updateClip(d.laneId, c.id, { duration: Math.max(0.2, Math.min(1200, snapT(c.duration + dt))) });
   };
   const onUp = () => {
     dragRef.current = null;
@@ -416,7 +485,7 @@ export default function StudioEditor({ id }) {
       if (!gain) continue;
       for (const c of l.clips || []) {
         const buf = buffers[c.path] || (await loadBuffer(c));
-        items.push({ buffer: buf, start: c.start, offset: c.offset || 0, duration: c.duration, gain });
+        items.push({ buffer: buf, start: c.start, offset: c.offset || 0, duration: c.duration, gain, loop: (c.offset || 0) + c.duration > buf.duration + 0.02 });
       }
     }
     if (!items.length) throw new Error('Add some audio first.');
@@ -511,6 +580,12 @@ export default function StudioEditor({ id }) {
         </button>
         <button type="button" className="btn-ghost h-9 rounded-full text-xs" disabled={!sc} onClick={deleteClip}>
           <Trash2 className="h-4 w-4" /> Delete
+        </button>
+        <button type="button" className="btn-ghost h-9 rounded-full text-xs" disabled={!sc || !!busy} onClick={loopClip} title="Repeat the clip once more">
+          <Repeat className="h-4 w-4" /> Loop
+        </button>
+        <button type="button" className="btn-ghost h-9 rounded-full text-xs !border-gold/50 !text-gold" disabled={!sc || !!busy} onClick={() => { setExtendStyle(''); setExtendOpen(true); }}>
+          <Sparkles className="h-4 w-4" /> AI Extend
         </button>
         <button type="button" className={`btn-ghost h-9 rounded-full text-xs ${snap ? '!border-gold/60 !text-gold' : ''}`} onClick={() => setSnap((s) => !s)} aria-pressed={snap}>
           <Magnet className="h-4 w-4" /> Snap
@@ -638,7 +713,7 @@ export default function StudioEditor({ id }) {
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
         <span className="inline-flex items-center gap-1"><Headphones className="h-3.5 w-3.5" /> Space bar plays and pauses.</span>
-        <span>Drag clips to move them. Drag their edges to trim. Select a clip and press Delete to remove it.</span>
+        <span>Drag clips to move them. Drag their edges to trim; drag the right edge past the end to loop. Select a clip and press Delete to remove it.</span>
         {sc && (
           <span className="inline-flex items-center gap-1 text-ink-300">
             <Volume2 className="h-3.5 w-3.5" /> {sc.name}: starts {formatTime(sc.start)}, {formatTime(sc.duration)} long
@@ -648,6 +723,30 @@ export default function StudioEditor({ id }) {
       </div>
 
       {addTo && <AddAudioModal onClose={() => setAddTo(null)} onPick={addClip} />}
+      {extendOpen && sc && (
+        <Modal
+          title="Extend with AI"
+          onClose={() => setExtendOpen(false)}
+          footer={
+            <>
+              <button type="button" className="btn-ghost" onClick={() => setExtendOpen(false)}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={aiExtendClip}>
+                <Sparkles className="h-4 w-4" /> Extend {formatTime(extendSecs)}
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink-300">“{sc.name}” keeps going for as long as you choose. The AI adds about 20 seconds per part, each part listening to the newest 10 seconds so it flows. About 3¢ per part.</p>
+            <label className="block">
+              <div className="mb-1 flex justify-between text-sm text-ink-200"><span>Add</span><span className="font-mono text-gold">{formatTime(extendSecs)} ({Math.ceil(extendSecs / 20)} parts)</span></div>
+              <input type="range" min={20} max={240} step={20} value={extendSecs} onChange={(e) => setExtendSecs(Number(e.target.value))} className="w-full" />
+            </label>
+            <input className="field" placeholder="Style for the new part (optional), e.g. add drums, sax solo" value={extendStyle} onChange={(e) => setExtendStyle(e.target.value)} />
+            <p className="text-xs text-ink-500">For free, use Loop instead, or drag the clip's right edge past its end and it repeats.</p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extendWithAI } from '@/lib/aiExtend';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
 import { decodeFromUrl, encodeWav, formatTime, peaksFromBuffer } from '@/lib/audio';
@@ -324,14 +325,7 @@ export default function SongEditor({ id }) {
       case 'extend':
         return apply(
           'Extending with AI',
-          async (b) => {
-            const promptSecs = Math.min(10, b.duration);
-            setBusy('Sending the ending to the AI');
-            const path = await uploadClip(slice(b, b.duration - promptSecs, b.duration), 'extend-prompt');
-            const res = await api.runJob({ kind: 'extend', track_id: track.id, audio_path: path, prompt: aiStyle, seconds: extendSecs }, (m) => setBusy(`Extending: ${m}`));
-            const cont = await decodeFromUrl(res.clip_url);
-            return appendContinuation(b, cont, promptSecs);
-          },
+          (b) => extendWithAI(b, extendSecs, { prompt: aiStyle, trackId: track.id, onStatus: setBusy }),
           'extend'
         );
       case 'replace': {
@@ -530,11 +524,11 @@ export default function SongEditor({ id }) {
           {tool === 'extend' && (
             <div className="flex flex-col gap-3">
               <label className="block">
-                <div className="mb-1 flex justify-between text-sm text-ink-200"><span>Add about</span><span className="font-mono text-gold">{extendSecs}s</span></div>
-                <input type="range" min={5} max={20} value={extendSecs} onChange={(e) => setExtendSecs(Number(e.target.value))} className="w-full" />
+                <div className="mb-1 flex justify-between text-sm text-ink-200"><span>Add about</span><span className="font-mono text-gold">{formatTime(extendSecs)} ({Math.ceil(extendSecs / 20)} AI part{extendSecs > 20 ? 's' : ''})</span></div>
+                <input type="range" min={10} max={240} step={10} value={extendSecs} onChange={(e) => setExtendSecs(Number(e.target.value))} className="w-full" />
               </label>
               <input className="field" placeholder="Style for the extension (optional)" value={aiStyle} onChange={(e) => setAiStyle(e.target.value)} />
-              <p className="text-xs text-ink-500">The AI listens to the last 10 seconds and keeps going as an instrumental. Run it again to add more. A few cents each time.</p>
+              <p className="text-xs text-ink-500">Up to 4 minutes at a time. The AI adds about 20 seconds per part, each part listening to the newest 10 seconds so it flows. It continues as an instrumental. About 3¢ per part.</p>
             </div>
           )}
           {tool === 'replace' && (
