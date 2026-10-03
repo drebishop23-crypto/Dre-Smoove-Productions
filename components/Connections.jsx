@@ -16,7 +16,6 @@ const DIRECT = [
     name: 'SoundCloud',
     does: 'Uploads the full-quality song with cover art and description.',
     keys: ['SOUNDCLOUD_CLIENT_ID', 'SOUNDCLOUD_CLIENT_SECRET'],
-    note: 'SoundCloud only gives these keys to Artist Pro accounts. Everything is built and switches on when the keys are added.',
   },
 ];
 
@@ -101,8 +100,8 @@ export default function Connections() {
               {s?.account && <p className="text-sm text-ink-200">Account: <span className="font-semibold text-gold">{s.account}</span></p>}
               {p.note && !s?.configured && <p className="text-xs text-ink-500">{p.note}</p>}
               {s && !s.configured && (
-                <p className="text-xs text-ink-500">
-                  Waiting on {p.keys.join(' and ')} in Netlify's environment variables.
+                <p className="text-xs text-neon-amber">
+                  The live site can't see {(s.missing?.length ? s.missing : p.keys).join(' or ')}. Check the name in Netlify's environment variables, then redeploy.
                 </p>
               )}
               <div className="mt-auto flex gap-2 pt-2">
