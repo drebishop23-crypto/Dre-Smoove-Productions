@@ -1,15 +1,16 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AudioWaveform, Library, Link2, Sparkles, UserRound } from 'lucide-react';
+import { AudioWaveform, Library, Link2, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react';
 import { PlayerProvider, usePlayer } from '@/components/PlayerProvider';
 import PlayerBar from '@/components/PlayerBar';
 import TrackArt from '@/components/TrackArt';
 
 const NAV = [
   { href: '/profile', label: 'Profile', short: 'Profile', icon: UserRound, hint: 'Your artist page' },
-  { href: '/studio', label: 'Studio Generator', short: 'Studio', icon: Sparkles, hint: 'Prompt, lyrics, generate' },
-  { href: '/library', label: 'My Library', short: 'Library', icon: Library, hint: 'Songs, videos, playlists' },
+  { href: '/create', label: 'Create', short: 'Create', icon: Sparkles, hint: 'Make songs, covers, remixes' },
+  { href: '/studio', label: 'Studio', short: 'Studio', icon: SlidersHorizontal, hint: 'Multitrack editing' },
+  { href: '/library', label: 'Library', short: 'Library', icon: Library, hint: 'Songs, playlists, hooks' },
   { href: '/connections', label: 'Connections', short: 'Connect', icon: Link2, hint: 'YouTube, SoundCloud, DistroKid' },
 ];
 
@@ -68,7 +69,7 @@ function NowPlayingMini() {
 }
 
 function Shell({ children }) {
-  const pathname = usePathname() || '/studio';
+  const pathname = usePathname() || '/create';
   const { current } = usePlayer();
 
   return (
@@ -126,7 +127,7 @@ function Shell({ children }) {
       {/* Mobile tab bar */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-ink-800 bg-ink-950/95 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-ink-800 bg-ink-950/95 backdrop-blur md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {NAV.map(({ href, short, icon: Icon }) => {

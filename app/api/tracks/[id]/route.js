@@ -4,10 +4,30 @@ import { lyricLines } from '@/lib/lyrics';
 
 export const dynamic = 'force-dynamic';
 
+// Covers and edited versions share their song's artwork, so only delete the file when nothing else uses it.
+async function removeArtworkIfUnused(sb, path, exceptId) {
+  const { count } = await sb.from('sp_tracks').select('id', { count: 'exact', head: true }).eq('artwork_path', path).neq('id', exceptId);
+  if (!count) await sb.storage.from(BUCKETS.artwork).remove([path]);
+}
+
 const EDITABLE = [
   'title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics',
   'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url', 'lyrics_synced',
+  'is_public', 'pinned', 'allow_remixes', 'allow_comments', 'liked', 'disliked', 'workspace_id', 'instrumental',
 ];
+
+// GET /api/tracks/:id — one song, plus its versions
+export async function GET(_req, { params }) {
+  try {
+    const sb = admin();
+    const { data, error } = await sb.from('sp_tracks').select('*').eq('id', params.id).single();
+    if (error || !data) return jsonError('Song not found.', 404);
+    const [track] = await withUrls(sb, [data]);
+    return Response.json({ track });
+  } catch (e) {
+    return jsonError(e.message, 500);
+  }
+}
 
 // PATCH /api/tracks/:id — update metadata
 export async function PATCH(req, { params }) {
@@ -32,11 +52,13 @@ export async function PATCH(req, { params }) {
       }
     }
 
-    // Remove the old artwork file when a new one replaces it
+    if ('workspace_id' in patch && !patch.workspace_id) patch.workspace_id = null;
+
+    // Remove the old artwork file when a new one replaces it (unless another version still uses it)
     if (patch.artwork_path) {
       const { data: old } = await sb.from('sp_tracks').select('artwork_path').eq('id', params.id).single();
       if (old?.artwork_path && old.artwork_path !== patch.artwork_path) {
-        await sb.storage.from(BUCKETS.artwork).remove([old.artwork_path]);
+        await removeArtworkIfUnused(sb, old.artwork_path, params.id);
       }
     }
 
@@ -57,7 +79,9 @@ export async function DELETE(_req, { params }) {
     if (error) throw error;
     await deleteObject(row.audio_path).catch(() => {});
     if (row.video_path) await deleteObject(row.video_path).catch(() => {});
-    if (row.artwork_path) await sb.storage.from(BUCKETS.artwork).remove([row.artwork_path]);
+    for (const path of Object.values(row.stems || {})) await deleteObject(path).catch(() => {});
+    if (row.midi_path) await deleteObject(row.midi_path).catch(() => {});
+    if (row.artwork_path) await removeArtworkIfUnused(sb, row.artwork_path, params.id);
     const { error: delErr } = await sb.from('sp_tracks').delete().eq('id', params.id);
     if (delErr) throw delErr;
     return Response.json({ ok: true });

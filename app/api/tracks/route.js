@@ -2,13 +2,14 @@ import { admin, withUrls, jsonError } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/tracks?source=ai|upload&playlist=<id>
+// GET /api/tracks?source=ai|upload&playlist=<id>&workspace=<id>
 export async function GET(req) {
   try {
     const sb = admin();
     const { searchParams } = new URL(req.url);
     const source = searchParams.get('source');
     const playlist = searchParams.get('playlist');
+    const workspace = searchParams.get('workspace');
 
     if (playlist) {
       const { data, error } = await sb
@@ -23,6 +24,7 @@ export async function GET(req) {
 
     let q = sb.from('sp_tracks').select('*').order('created_at', { ascending: false });
     if (source === 'ai' || source === 'upload') q = q.eq('source', source);
+    if (workspace) q = q.eq('workspace_id', workspace);
     const { data, error } = await q;
     if (error) throw error;
     return Response.json({ tracks: await withUrls(sb, data || []) });
@@ -31,7 +33,7 @@ export async function GET(req) {
   }
 }
 
-// POST /api/tracks — register a file that was just uploaded to the audio bucket
+// POST /api/tracks — register a file that was just uploaded (a recording, or an edited version of a song)
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -40,7 +42,7 @@ export async function POST(req) {
     const row = {
       title: (body.title || 'Untitled').slice(0, 200),
       artist: body.artist || 'Dré Smoove',
-      source: 'upload',
+      source: ['upload', 'ai', 'edit', 'studio'].includes(body.source) ? body.source : 'upload',
       tags: Array.isArray(body.tags) ? body.tags.slice(0, 20) : [],
       release_date: body.release_date || null,
       audio_path: body.audio_path,
@@ -48,6 +50,10 @@ export async function POST(req) {
       duration: body.duration || null,
       peaks: body.peaks || null,
     };
+    for (const k of ['parent_id', 'edit_note', 'lyrics', 'prompt', 'model', 'artwork_path', 'workspace_id']) {
+      if (body[k]) row[k] = body[k];
+    }
+    if ('instrumental' in body) row.instrumental = !!body.instrumental;
     const { data, error } = await sb.from('sp_tracks').insert(row).select().single();
     if (error) throw error;
     const [track] = await withUrls(sb, [data]);

@@ -269,6 +269,8 @@ export default function ProfilePage() {
     const list = [...tracks];
     if (sort === 'popular') list.sort((a, b) => (b.plays || 0) - (a.plays || 0) || String(b.created_at).localeCompare(String(a.created_at)));
     else list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    // Pinned songs always come first, like Suno
+    list.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
     return list;
   }, [tracks, sort]);
 

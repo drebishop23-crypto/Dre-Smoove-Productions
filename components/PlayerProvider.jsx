@@ -125,6 +125,46 @@ export function PlayerProvider({ children }) {
     setTime(a.currentTime);
   }, []);
 
+  // Add a song to the end of the queue (starts playing if nothing is loaded)
+  const addToQueue = useCallback((track) => {
+    if (!loadedId.current) {
+      setQueue([track]);
+      setIndex(0);
+      return;
+    }
+    setQueue((q) => [...q, track]);
+  }, []);
+
+  // Play a stretch of a song (used by Hooks): seeks to start and pauses at end
+  const stopAtRef = useRef(null);
+  const playClip = useCallback((track, start, end) => {
+    stopAtRef.current = end ?? null;
+    const a = audioRef.current;
+    const go = () => {
+      if (!a) return;
+      a.currentTime = start || 0;
+      a.play().catch(() => {});
+    };
+    if (loadedId.current === track.id) go();
+    else {
+      setQueue([track]);
+      setIndex(0);
+      const once = () => {
+        a.removeEventListener('loadedmetadata', once);
+        go();
+      };
+      a?.addEventListener('loadedmetadata', once);
+    }
+  }, []);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (stopAtRef.current != null && a && time >= stopAtRef.current) {
+      a.pause();
+      stopAtRef.current = null;
+    }
+  }, [time]);
+
   // Keep queue entries in sync after metadata edits (title, artwork, etc.)
   const syncTrack = useCallback((track) => {
     setQueue((q) => q.map((t) => (t.id === track.id ? { ...t, ...track } : t)));
@@ -164,9 +204,11 @@ export function PlayerProvider({ children }) {
       setVolume: setVolumeState,
       syncTrack,
       removeTrack,
+      addToQueue,
+      playClip,
       isCurrent: (id) => current?.id === id,
     }),
-    [current, queue, playing, time, duration, volume, error, playTrack, toggle, next, prev, seek, syncTrack, removeTrack]
+    [current, queue, playing, time, duration, volume, error, playTrack, toggle, next, prev, seek, syncTrack, removeTrack, addToQueue, playClip]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
