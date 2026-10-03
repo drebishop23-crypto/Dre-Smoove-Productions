@@ -119,8 +119,8 @@ function EditProfile({ profile, onClose, onSaved }) {
           ].map(([field, label, url, ref, target]) => (
             <div key={field} className="rounded-xl border border-ink-700 bg-ink-850 p-3">
               <div className="label mb-2">{label}</div>
-              <div className={`mb-3 overflow-hidden bg-ink-800 ${target === 'avatar' ? 'h-20 w-20 rounded-full' : 'h-20 w-full rounded-lg'}`}>
-                {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+              <div className={`mb-3 overflow-hidden ${target === 'avatar' ? 'h-20 w-20 rounded-full bg-ink-800' : 'h-20 w-full rounded-lg bg-black'}`}>
+                {url && <img src={url} alt="" className={`h-full w-full ${target === 'avatar' ? 'object-cover' : 'object-contain'}`} />}
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => ref.current?.click()} disabled={busyImg === field}>
@@ -303,17 +303,22 @@ export default function ProfilePage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       {/* Banner + identity */}
       <section className="overflow-hidden rounded-3xl border border-ink-700 bg-ink-900">
-        <div
-          className="relative h-40 sm:h-56"
-          style={
-            profile.banner_url
-              ? { backgroundImage: `url(${profile.banner_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-              : { background: 'radial-gradient(120% 140% at 15% 0%, rgba(232,185,74,.35), transparent 55%), radial-gradient(90% 120% at 90% 10%, rgba(157,123,255,.35), transparent 60%), #0b0f16' }
-          }
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/20 to-transparent" />
+        <div className="relative h-44 overflow-hidden bg-black sm:h-64">
+          {profile.banner_url ? (
+            <>
+              {/* Blurred fill behind, full image on top, so any shape (square logo or wide photo) fits whole */}
+              <img src={profile.banner_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl" />
+              <img src={profile.banner_url} alt="" className="relative h-full w-full object-contain" />
+            </>
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: 'radial-gradient(120% 140% at 15% 0%, rgba(232,185,74,.35), transparent 55%), radial-gradient(90% 120% at 90% 10%, rgba(157,123,255,.35), transparent 60%), #0b0f16' }}
+            />
+          )}
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ink-900 to-transparent" />
         </div>
-        <div className="relative -mt-16 flex flex-col gap-5 px-5 pb-6 sm:-mt-20 sm:px-8">
+        <div className="relative flex flex-col gap-5 px-5 pb-6 pt-5 sm:-mt-20 sm:px-8 sm:pt-0">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex items-end gap-4">
               <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full bg-ink-800 ring-4 ring-gold/80 sm:h-36 sm:w-36">
