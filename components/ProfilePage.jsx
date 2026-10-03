@@ -303,19 +303,18 @@ export default function ProfilePage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
       {/* Banner + identity */}
       <section className="overflow-hidden rounded-3xl border border-ink-700 bg-ink-900">
-        {/* Suno-style hero: the banner fills the whole space and the name sits on top of it.
-            Phones get a tall square hero so a square logo shows in full; wider screens crop to the middle. */}
-        <div className="relative aspect-square overflow-hidden bg-black sm:aspect-auto sm:h-80">
+        {/* The whole banner image is stretched to fill the space, so nothing is ever cut off. Name and buttons sit below it. */}
+        <div className="relative aspect-square overflow-hidden bg-black sm:aspect-[5/2]">
           {profile.banner_url ? (
-            <img src={profile.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+            <img src={profile.banner_url} alt="" className="absolute inset-0 h-full w-full object-fill" />
           ) : (
             <div
               className="absolute inset-0"
               style={{ background: 'radial-gradient(120% 140% at 15% 0%, rgba(232,185,74,.35), transparent 55%), radial-gradient(90% 120% at 90% 10%, rgba(157,123,255,.35), transparent 60%), #0b0f16' }}
             />
           )}
-          <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-ink-900 via-ink-900/70 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between sm:px-8 sm:pb-6">
+        </div>
+        <div className="flex flex-col gap-4 px-5 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <div className="flex items-end gap-4">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-ink-800 ring-4 ring-gold/80 sm:h-28 sm:w-28">
                 {profile.avatar_url ? (
@@ -327,12 +326,12 @@ export default function ProfilePage() {
                 )}
               </div>
               <div className="min-w-0 pb-1">
-                <h1 className="font-display text-3xl font-extrabold tracking-tight text-gold drop-shadow-[0_2px_8px_rgba(0,0,0,.8)] sm:text-4xl">{profile.display_name}</h1>
-                <p className="font-mono text-sm text-ink-200 drop-shadow-[0_1px_4px_rgba(0,0,0,.9)]">@{profile.handle}</p>
+                <h1 className="font-display text-3xl font-extrabold tracking-tight text-gold sm:text-4xl">{profile.display_name}</h1>
+                <p className="font-mono text-sm text-ink-200">@{profile.handle}</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button type="button" className="btn-ghost flex-1 bg-ink-900/70 backdrop-blur sm:flex-none" onClick={() => setEditing(true)}>
+              <button type="button" className="btn-ghost flex-1 sm:flex-none" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" /> Edit profile
               </button>
               <button
@@ -344,7 +343,6 @@ export default function ProfilePage() {
                 <Play className="h-4 w-4" fill="currentColor" /> Play
               </button>
             </div>
-          </div>
         </div>
         <div className="relative flex flex-col gap-5 px-5 pb-6 pt-5 sm:px-8">
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
