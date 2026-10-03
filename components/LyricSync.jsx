@@ -5,6 +5,7 @@ import Modal from '@/components/Modal';
 import { usePlayer } from '@/components/PlayerProvider';
 import { api } from '@/lib/api';
 import { lyricLines } from '@/lib/lyrics';
+import { syncInBrowser } from '@/lib/browserSync';
 import { formatTime } from '@/lib/audio';
 
 // Sync a song's lyrics to the music, automatically with AI or by tapping along.
@@ -41,23 +42,10 @@ export default function LyricSync({ track, onClose, onSaved }) {
   const runAI = async () => {
     setMode('ai');
     setError(null);
-    setAiStatus('Sending the song to the AI');
+    setAiStatus('Getting the lyric AI ready');
     try {
-      const { id } = await api.startLyricSync(track.id);
-      setAiStatus('Listening to the song');
-      for (let i = 0; i < 120; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const res = await api.pollLyricSync(track.id, id);
-        if (res.status === 'succeeded') {
-          setSynced(res.track.lyrics_synced);
-          onSaved?.(res.track);
-          setMode('review');
-          return;
-        }
-        if (res.status === 'failed' || res.status === 'canceled') throw new Error(res.error || 'The AI could not sync this song.');
-        setAiStatus(res.status === 'processing' ? 'Matching the words to the music' : 'Warming up the AI');
-      }
-      throw new Error('That took too long. Try again.');
+      const data = await syncInBrowser(track, setAiStatus);
+      await save(data);
     } catch (e) {
       setError(e.message);
       setMode('menu');
@@ -131,7 +119,7 @@ export default function LyricSync({ track, onClose, onSaved }) {
           <button type="button" onClick={runAI} className="flex flex-col gap-2 rounded-xl border border-ink-700 bg-ink-850 p-4 text-left transition hover:border-gold/60">
             <Sparkles className="h-5 w-5 text-gold" />
             <span className="font-display font-bold text-white">Auto-sync with AI</span>
-            <span className="text-sm text-ink-400">The AI listens to the song and lines up every lyric line. Takes about a minute and costs a few cents.</span>
+            <span className="text-sm text-ink-400">The AI listens to the song and lines up every lyric line. Runs free in your browser. Takes a minute or two.</span>
           </button>
           <button type="button" onClick={startTap} className="flex flex-col gap-2 rounded-xl border border-ink-700 bg-ink-850 p-4 text-left transition hover:border-gold/60">
             <Hand className="h-5 w-5 text-neon-cyan" />

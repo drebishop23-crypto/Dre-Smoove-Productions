@@ -6,14 +6,15 @@ import SyncedLyrics from '@/components/SyncedLyrics';
 import LyricSync from '@/components/LyricSync';
 import { api } from '@/lib/api';
 import { lyricLines } from '@/lib/lyrics';
+import { syncInBrowser } from '@/lib/browserSync';
 
-const started = new Set(); // songs already sent for auto-sync this session
+const started = new Set(); // songs already being synced this session
 
-// Lyrics for the song that's playing. If they aren't synced yet, the AI syncs them
-// automatically the first time, then they follow the music from then on.
+// Lyrics for the song that's playing. If they aren't synced yet, they get synced
+// automatically right in the browser (free, no token), then follow the music from then on.
 export default function LyricsPanel({ track }) {
   const { syncTrack } = usePlayer();
-  const [status, setStatus] = useState(null); // null | 'syncing' | error message
+  const [status, setStatus] = useState(null); // null | { busy: true, text } | { error }
   const [tapSync, setTapSync] = useState(false);
   const hasLines = lyricLines(track.lyrics).length > 0;
   const synced = track.lyrics_synced?.length > 0;
@@ -22,24 +23,17 @@ export default function LyricsPanel({ track }) {
     if (!hasLines || synced || started.has(track.id)) return;
     started.add(track.id);
     let alive = true;
-    setStatus('syncing');
+    const say = (text) => alive && setStatus({ busy: true, text });
+    say('Syncing the lyrics to the music');
     (async () => {
       try {
-        const { id } = await api.startLyricSync(track.id);
-        for (let i = 0; i < 120; i++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          const res = await api.pollLyricSync(track.id, id);
-          if (res.status === 'succeeded') {
-            syncTrack(res.track);
-            if (alive) setStatus(null);
-            return;
-          }
-          if (res.status === 'failed' || res.status === 'canceled') throw new Error(res.error || 'Auto-sync failed.');
-        }
-        throw new Error('Auto-sync took too long.');
+        const data = await syncInBrowser(track, say);
+        const { track: saved } = await api.updateTrack(track.id, { lyrics_synced: data });
+        syncTrack(saved);
+        if (alive) setStatus(null);
       } catch (e) {
         started.delete(track.id);
-        if (alive) setStatus(e.message || 'Auto-sync failed.');
+        if (alive) setStatus({ error: e.message || 'Auto-sync failed.' });
       }
     })();
     return () => {
@@ -59,13 +53,13 @@ export default function LyricsPanel({ track }) {
 
   return (
     <>
-      {status === 'syncing' ? (
+      {status?.busy ? (
         <p className="mb-3 flex items-center gap-2 rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold">
-          <Loader2 className="h-4 w-4 animate-spin" /> Syncing the lyrics to the music. They'll start moving on their own in about a minute.
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {status.text}. Keep this open; the lines start moving on their own when it's done.
         </p>
-      ) : status ? (
+      ) : status?.error ? (
         <div className="mb-3 rounded-lg border border-neon-pink/40 bg-neon-pink/10 px-3 py-2 text-sm text-neon-pink">
-          {status}{' '}
+          {status.error}{' '}
           <button type="button" className="font-semibold underline" onClick={() => setTapSync(true)}>
             Sync by tapping instead
           </button>
