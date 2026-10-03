@@ -1,5 +1,6 @@
 'use client';
-import { Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
 import { usePlayer } from '@/components/PlayerProvider';
 import Waveform from '@/components/Waveform';
 import TrackArt from '@/components/TrackArt';
@@ -11,6 +12,7 @@ import { formatTime } from '@/lib/audio';
 export default function PlayerBar() {
   const { current, playing, time, duration, volume, error, toggle, next, prev, seek, setVolume, queue } = usePlayer();
   const peaks = usePeaks(current);
+  const [showLyrics, setShowLyrics] = useState(false);
   if (!current) return null;
 
   const progress = duration ? time / duration : 0;
@@ -21,6 +23,29 @@ export default function PlayerBar() {
       className="fixed inset-x-0 bottom-[60px] z-40 border-t border-ink-700 bg-ink-900/95 backdrop-blur-xl md:bottom-0 md:left-64"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
+      {showLyrics && (
+        <div className="absolute inset-x-0 bottom-full max-h-[60vh] overflow-y-auto border-t border-ink-700 bg-ink-900/95 px-5 py-4 backdrop-blur-xl md:px-8">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="label">Lyrics</div>
+                <div className="truncate font-display text-base font-bold text-gold">{current.title}</div>
+              </div>
+              <button type="button" className="icon-btn" aria-label="Close lyrics" onClick={() => setShowLyrics(false)}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {current.lyrics ? (
+              <pre className="whitespace-pre-wrap font-sans text-[15px] leading-7 text-ink-100">{current.lyrics}</pre>
+            ) : (
+              <p className="text-sm text-ink-400">
+                No lyrics saved for this song. In My Library, open the song's ••• menu and choose Add lyrics.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Thin progress line on mobile */}
       <div className="h-[2px] w-full bg-ink-800 md:hidden">
         <div
@@ -88,6 +113,15 @@ export default function PlayerBar() {
           />
         </div>
 
+        <button
+          type="button"
+          className={`icon-btn ${showLyrics ? 'bg-ink-700 text-gold' : ''}`}
+          aria-label={showLyrics ? 'Hide lyrics' : 'Show lyrics'}
+          aria-pressed={showLyrics}
+          onClick={() => setShowLyrics((v) => !v)}
+        >
+          <FileText className="h-4 w-4" />
+        </button>
         <DownloadMenu track={current} direction="up" className="hidden sm:block" />
       </div>
       {error && <p className="px-6 pb-2 text-xs text-neon-pink">{error}</p>}

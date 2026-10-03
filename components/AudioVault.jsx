@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Disc3,
   FileAudio,
+  FileText,
   ImagePlus,
   ListMusic,
   ListPlus,
@@ -243,6 +244,7 @@ function EditModal({ track, onClose, onSaved }) {
   const [artist, setArtist] = useState(track.artist || '');
   const [tags, setTags] = useState((track.tags || []).join(', '));
   const [releaseDate, setReleaseDate] = useState(track.release_date ? String(track.release_date).slice(0, 10) : '');
+  const [lyrics, setLyrics] = useState(track.lyrics || '');
   const [artFile, setArtFile] = useState(null);
   const [artPreview, setArtPreview] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -260,6 +262,7 @@ function EditModal({ track, onClose, onSaved }) {
         artist: artist.trim() || 'Dré Smoove',
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         release_date: releaseDate || null,
+        lyrics: lyrics.trim() ? lyrics : null,
       });
       if (artFile) ({ track: saved } = await api.uploadArtwork(track.id, artFile));
       onSaved(saved);
@@ -328,6 +331,17 @@ function EditModal({ track, onClose, onSaved }) {
           <label htmlFor="edit-tags" className="label mb-2 block">Tags (comma separated)</label>
           <input id="edit-tags" className="field" value={tags} onChange={(e) => setTags(e.target.value)} />
         </div>
+        <div>
+          <label htmlFor="edit-lyrics" className="label mb-2 block">Lyrics</label>
+          <textarea
+            id="edit-lyrics"
+            rows={10}
+            className="field resize-y font-sans leading-relaxed"
+            placeholder={'Paste or type the lyrics here.\n\n[Verse]\n...\n\n[Chorus]\n...'}
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+          />
+        </div>
         {track.source === 'ai' && track.prompt && (
           <div className="rounded-xl border border-ink-700 bg-ink-850 p-3">
             <div className="label mb-1">Original prompt</div>
@@ -341,9 +355,37 @@ function EditModal({ track, onClose, onSaved }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Lyrics viewer                                                       */
+/* ------------------------------------------------------------------ */
+export function LyricsModal({ track, onClose, onEdit }) {
+  return (
+    <Modal
+      title={track.title}
+      onClose={onClose}
+      footer={
+        <>
+          {onEdit && (
+            <button type="button" className="btn-ghost" onClick={onEdit}>
+              <Pencil className="h-4 w-4" /> {track.lyrics ? 'Edit lyrics' : 'Add lyrics'}
+            </button>
+          )}
+          <button type="button" className="btn-primary" onClick={onClose}>Done</button>
+        </>
+      }
+    >
+      {track.lyrics ? (
+        <pre className="whitespace-pre-wrap font-sans text-[15px] leading-7 text-ink-100">{track.lyrics}</pre>
+      ) : (
+        <p className="text-sm text-ink-400">No lyrics saved for this song yet.</p>
+      )}
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Row menu                                                            */
 /* ------------------------------------------------------------------ */
-function RowMenu({ track, playlists, inPlaylist, onEdit, onAddTo, onRemoveFrom, onDelete }) {
+function RowMenu({ track, playlists, inPlaylist, onEdit, onLyrics, onAddTo, onRemoveFrom, onDelete }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('main');
   const [busy, setBusy] = useState(null);
@@ -386,6 +428,9 @@ function RowMenu({ track, playlists, inPlaylist, onEdit, onAddTo, onRemoveFrom, 
             <>
               <button type="button" className={item} onClick={() => { setOpen(false); onEdit(); }}>
                 <Pencil className="h-4 w-4 text-ink-400" /> Edit details &amp; artwork
+              </button>
+              <button type="button" className={item} onClick={() => { setOpen(false); onLyrics(); }}>
+                <FileText className="h-4 w-4 text-ink-400" /> {track.lyrics ? 'View lyrics' : 'Add lyrics'}
               </button>
               <button type="button" className={item} onClick={() => setView('playlists')}>
                 <ListPlus className="h-4 w-4 text-ink-400" /> Add to playlist
@@ -530,6 +575,7 @@ export default function AudioVault() {
 
   const [showUpload, setShowUpload] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [viewingLyrics, setViewingLyrics] = useState(null);
   const [newPlaylist, setNewPlaylist] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -875,6 +921,7 @@ export default function AudioVault() {
                   playlists={playlists}
                   inPlaylist={!!activePlaylist}
                   onEdit={() => setEditing(t)}
+                  onLyrics={() => (t.lyrics ? setViewingLyrics(t) : setEditing(t))}
                   onAddTo={(pid) => addTo(pid, t.id)}
                   onRemoveFrom={() => activePlaylist && removeFrom(activePlaylist.id, t.id)}
                   onDelete={() => deleteTrack(t)}
@@ -910,6 +957,16 @@ export default function AudioVault() {
         />
       )}
       {editing && <EditModal track={editing} onClose={() => setEditing(null)} onSaved={onSaved} />}
+      {viewingLyrics && (
+        <LyricsModal
+          track={tracks.find((x) => x.id === viewingLyrics.id) || viewingLyrics}
+          onClose={() => setViewingLyrics(null)}
+          onEdit={() => {
+            setEditing(tracks.find((x) => x.id === viewingLyrics.id) || viewingLyrics);
+            setViewingLyrics(null);
+          }}
+        />
+      )}
 
       {toast && (
         <div role="status" className="fixed left-1/2 top-5 z-[70] -translate-x-1/2 rounded-full border border-ink-600 bg-ink-800 px-4 py-2 text-sm text-white shadow-2xl">

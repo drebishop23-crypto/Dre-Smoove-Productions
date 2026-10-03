@@ -3,7 +3,7 @@ import { deleteObject } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
-const EDITABLE = ['title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration'];
+const EDITABLE = ['title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics'];
 
 // PATCH /api/tracks/:id — update metadata
 export async function PATCH(req, { params }) {
