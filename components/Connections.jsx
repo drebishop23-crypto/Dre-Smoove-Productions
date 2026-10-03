@@ -74,7 +74,9 @@ export default function Connections() {
           <AlertCircle className="h-4 w-4" />
           {flashError?.endsWith('-not-configured')
             ? 'That platform needs its keys added in Netlify first. The card below shows which ones.'
-            : flashError || error}
+            : flashError === 'sign-in-expired'
+              ? 'That sign-in timed out or was started twice. Click Connect again and finish in one go.'
+              : flashError || error}
         </p>
       )}
 

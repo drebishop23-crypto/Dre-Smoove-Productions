@@ -1,4 +1,4 @@
-import { provider, isConfigured, redirectUri, pkcePair, saveRow } from '@/lib/oauth';
+import { provider, isConfigured, redirectUri, pkcePair, getRow, saveRow } from '@/lib/oauth';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +26,16 @@ export async function GET(req, { params }) {
       q.set('code_challenge', pair.challenge);
       q.set('code_challenge_method', 'S256');
     }
-    await saveRow(service, { oauth_state: state, pkce_verifier: verifier });
+    // Keep the last few sign-in attempts so going back or clicking Connect twice still works
+    const row = await getRow(service).catch(() => null);
+    let pending = [];
+    try {
+      pending = JSON.parse(row?.oauth_state || '[]');
+      if (!Array.isArray(pending)) pending = [];
+    } catch {}
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    pending = [{ state, verifier, at: Date.now() }, ...pending.filter((p) => p && p.at > cutoff)].slice(0, 5);
+    await saveRow(service, { oauth_state: JSON.stringify(pending), pkce_verifier: null });
     return Response.redirect(`${p.authorizeUrl}?${q.toString()}`, 302);
   } catch (e) {
     return Response.redirect(new URL(`/connections?error=${encodeURIComponent(e.message)}`, req.url), 302);

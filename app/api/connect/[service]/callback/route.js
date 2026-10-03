@@ -12,10 +12,17 @@ export async function GET(req, { params }) {
     if (url.searchParams.get('error')) return back(`error=${encodeURIComponent(url.searchParams.get('error'))}`);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
+    if (!code) return back('error=no-code-returned');
     const row = await getRow(service);
-    if (!code || !row || row.oauth_state !== state) return back('error=sign-in-expired');
+    let pending = [];
+    try {
+      pending = JSON.parse(row?.oauth_state || '[]');
+      if (!Array.isArray(pending)) pending = [];
+    } catch {}
+    const match = pending.find((p) => p && p.state === state && p.at > Date.now() - 30 * 60 * 1000);
+    if (!match) return back('error=sign-in-expired');
 
-    const data = await exchangeCode(req, service, code, row.pkce_verifier);
+    const data = await exchangeCode(req, service, code, match.verifier);
     const account = await p.accountName(data.access_token).catch(() => null);
     await saveRow(service, {
       access_token: data.access_token,
