@@ -34,6 +34,8 @@ import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
 import Modal from '@/components/Modal';
 import CoverGenerator from '@/components/CoverGenerator';
+import SyncedLyrics from '@/components/SyncedLyrics';
+import LyricSync from '@/components/LyricSync';
 import ReleaseModal from '@/components/ReleaseModal';
 import Link from 'next/link';
 import { decodeFromFile, downloadTrack, formatTime, peaksFromBuffer } from '@/lib/audio';
@@ -385,11 +387,13 @@ function EditModal({ track, onClose, onSaved }) {
 /* ------------------------------------------------------------------ */
 /* Lyrics viewer                                                       */
 /* ------------------------------------------------------------------ */
-export function LyricsModal({ track, onClose, onEdit }) {
+export function LyricsModal({ track, onClose, onEdit, onSaved }) {
+  const [syncing, setSyncing] = useState(false);
   return (
     <Modal
       title={track.title}
       onClose={onClose}
+      wide
       footer={
         <>
           {onEdit && (
@@ -397,15 +401,23 @@ export function LyricsModal({ track, onClose, onEdit }) {
               <Pencil className="h-4 w-4" /> {track.lyrics ? 'Edit lyrics' : 'Add lyrics'}
             </button>
           )}
+          {track.lyrics && (
+            <button type="button" className="btn-ghost" onClick={() => setSyncing(true)}>
+              <AudioLines className="h-4 w-4 text-gold" /> {track.lyrics_synced?.length ? 'Re-sync to music' : 'Sync to music'}
+            </button>
+          )}
           <button type="button" className="btn-primary" onClick={onClose}>Done</button>
         </>
       }
     >
-      {track.lyrics ? (
+      {track.lyrics_synced?.length ? (
+        <SyncedLyrics track={track} className="h-[55vh]" />
+      ) : track.lyrics ? (
         <pre className="whitespace-pre-wrap font-sans text-[15px] leading-7 text-ink-100">{track.lyrics}</pre>
       ) : (
         <p className="text-sm text-ink-400">No lyrics saved for this song yet.</p>
       )}
+      {syncing && <LyricSync track={track} onClose={() => setSyncing(false)} onSaved={onSaved} />}
     </Modal>
   );
 }
@@ -1003,6 +1015,7 @@ export default function AudioVault() {
       {viewingLyrics && (
         <LyricsModal
           track={tracks.find((x) => x.id === viewingLyrics.id) || viewingLyrics}
+          onSaved={onSaved}
           onClose={() => setViewingLyrics(null)}
           onEdit={() => {
             setEditing(tracks.find((x) => x.id === viewingLyrics.id) || viewingLyrics);

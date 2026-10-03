@@ -1,11 +1,12 @@
 import { admin, BUCKETS, withUrls, jsonError } from '@/lib/supabase-admin';
 import { deleteObject } from '@/lib/r2';
+import { lyricLines } from '@/lib/lyrics';
 
 export const dynamic = 'force-dynamic';
 
 const EDITABLE = [
   'title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics',
-  'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url',
+  'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url', 'lyrics_synced',
 ];
 
 // PATCH /api/tracks/:id — update metadata
@@ -20,6 +21,16 @@ export async function PATCH(req, { params }) {
     }
     if (!Object.keys(patch).length) return jsonError('Nothing to update.');
     const sb = admin();
+
+    // Keep synced timings when the lyrics change only in wording; clear them if lines were added or removed
+    if ('lyrics' in patch && !('lyrics_synced' in patch)) {
+      const { data: cur } = await sb.from('sp_tracks').select('lyrics_synced').eq('id', params.id).single();
+      if (Array.isArray(cur?.lyrics_synced) && cur.lyrics_synced.length) {
+        const lines = lyricLines(patch.lyrics || '');
+        patch.lyrics_synced =
+          lines.length === cur.lyrics_synced.length ? cur.lyrics_synced.map((l, i) => ({ ...l, text: lines[i] })) : null;
+      }
+    }
 
     // Remove the old artwork file when a new one replaces it
     if (patch.artwork_path) {
