@@ -5,7 +5,7 @@ import { usePlayer } from '@/components/PlayerProvider';
 import Waveform from '@/components/Waveform';
 import TrackArt from '@/components/TrackArt';
 import DownloadMenu from '@/components/DownloadMenu';
-import SyncedLyrics from '@/components/SyncedLyrics';
+import LyricsPanel from '@/components/LyricsPanel';
 import { usePeaks } from '@/lib/usePeaks';
 import { formatTime } from '@/lib/audio';
 
@@ -36,18 +36,7 @@ export default function PlayerBar() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {current.lyrics_synced?.length ? (
-              <SyncedLyrics track={current} className="h-[45vh]" />
-            ) : current.lyrics ? (
-              <>
-                <pre className="whitespace-pre-wrap font-sans text-[15px] leading-7 text-ink-100">{current.lyrics}</pre>
-                <p className="mt-3 text-xs text-ink-500">To have these follow the music, open the song's ••• menu in My Library, choose View lyrics, then Sync to music.</p>
-              </>
-            ) : (
-              <p className="text-sm text-ink-400">
-                No lyrics saved for this song. In My Library, open the song's ••• menu and choose Add lyrics.
-              </p>
-            )}
+            <LyricsPanel track={current} />
           </div>
         </div>
       )}
