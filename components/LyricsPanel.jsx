@@ -55,7 +55,7 @@ export default function LyricsPanel({ track }) {
     <>
       {status?.busy ? (
         <p className="mb-3 flex items-center gap-2 rounded-lg bg-gold/10 px-3 py-2 text-sm text-gold">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {status.text}. Keep this open; the lines start moving on their own when it's done.
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> {status.text}. You can keep using the app; the lines start moving on their own when it's done.
         </p>
       ) : status?.error ? (
         <div className="mb-3 rounded-lg border border-neon-pink/40 bg-neon-pink/10 px-3 py-2 text-sm text-neon-pink">
