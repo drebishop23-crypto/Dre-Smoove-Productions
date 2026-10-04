@@ -255,6 +255,14 @@ export default function SongMenu({ track, actions, className = '', triggerClass 
               {t.workspace_id === w.id && <Check className="h-4 w-4 text-neon-cyan" />}
             </button>
           ))}
+          <div className="my-1 border-t border-ink-700" />
+          <button
+            type="button"
+            className={`${item} !text-neon-pink`}
+            onClick={run(() => window.confirm(`Delete "${t.title}" forever? This can't be undone.`) && a.remove(t))}
+          >
+            <Trash2 className="h-4 w-4" /> Delete song
+          </button>
         </>
       );
     if (sub === 'playlist')

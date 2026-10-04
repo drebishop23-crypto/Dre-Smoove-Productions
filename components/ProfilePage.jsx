@@ -20,6 +20,8 @@ import {
 import { api } from '@/lib/api';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
+import SongMenu from '@/components/SongMenu';
+import { useSongActions } from '@/components/SongActions';
 import Modal from '@/components/Modal';
 import CoverGenerator from '@/components/CoverGenerator';
 import { formatTime } from '@/lib/audio';
@@ -194,7 +196,7 @@ function EditProfile({ profile, onClose, onSaved }) {
 }
 
 /* ------------------------------------------------------------------ */
-function SongRow({ track, index, list, liked, onLike }) {
+function SongRow({ track, index, list, liked, onLike, actions }) {
   const { isCurrent, playing, playTrack, toggle } = usePlayer();
   const active = isCurrent(track.id);
   return (
@@ -235,7 +237,10 @@ function SongRow({ track, index, list, liked, onLike }) {
       >
         <Heart className="h-3.5 w-3.5" fill={liked ? 'currentColor' : 'none'} /> {fmtNum(track.likes)}
       </button>
-      <span className="w-10 text-right font-mono text-xs tabular-nums text-ink-400">{formatTime(track.duration)}</span>
+      <span className="flex items-center gap-1">
+        <span className="hidden w-10 text-right font-mono text-xs tabular-nums text-ink-400 sm:inline">{formatTime(track.duration)}</span>
+        <SongMenu track={track} actions={actions} triggerClass="icon-btn h-9 w-9" />
+      </span>
     </li>
   );
 }
@@ -249,6 +254,10 @@ export default function ProfilePage() {
   const [sort, setSort] = useState('popular');
   const [editing, setEditing] = useState(false);
   const [liked, setLiked] = useState(() => new Set());
+  const { actions, modals } = useSongActions({
+    onUpdate: (t) => setTracks((ts) => ts.map((x) => (x.id === t.id ? { ...x, ...t } : x))),
+    onRemove: (t) => setTracks((ts) => ts.filter((x) => x.id !== t.id)),
+  });
 
   const load = useCallback(async (countView) => {
     try {
@@ -403,7 +412,7 @@ export default function ProfilePage() {
         {sorted.length ? (
           <ul className="flex flex-col gap-1">
             {sorted.map((t, i) => (
-              <SongRow key={t.id} track={t} index={i} list={sorted} liked={liked.has(t.id)} onLike={onLike} />
+              <SongRow key={t.id} track={t} index={i} list={sorted} liked={liked.has(t.id)} onLike={onLike} actions={actions} />
             ))}
           </ul>
         ) : (
@@ -414,6 +423,7 @@ export default function ProfilePage() {
         )}
       </section>
 
+      {modals}
       {editing && (
         <EditProfile
           profile={profile}

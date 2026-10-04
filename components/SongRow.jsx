@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Globe, Merge, MessageSquare, Mic, Pause, Play, Repeat2, Share2, Sparkles, ThumbsDown, ThumbsUp, Undo2, Waves } from 'lucide-react';
+import { Globe, Merge, Trash2, MessageSquare, Mic, Pause, Play, Repeat2, Share2, Sparkles, ThumbsDown, ThumbsUp, Undo2, Waves } from 'lucide-react';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
 import SongMenu from '@/components/SongMenu';
@@ -147,6 +147,15 @@ export default function SongRow({ track, list, actions, selectable = false, sele
           <ThumbsUp className="h-4 w-4" fill={track.liked ? 'currentColor' : 'none'} />
         </button>
         {!compact && <RemixButton track={track} actions={actions} />}
+        <button
+          type="button"
+          className="icon-btn hidden h-9 w-9 hover:!text-neon-pink sm:inline-flex"
+          aria-label={`Delete ${track.title}`}
+          title="Delete"
+          onClick={() => window.confirm(`Delete "${track.title}" forever? This can't be undone.`) && actions.remove(track)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
         <SongMenu track={track} actions={actions} triggerClass="icon-btn h-9 w-9 rounded-full" />
       </div>
     </li>
