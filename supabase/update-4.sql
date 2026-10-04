@@ -85,3 +85,7 @@ alter table public.sp_projects enable row level security;
 alter table public.sp_hooks enable row level security;
 alter table public.sp_comments enable row level security;
 alter table public.sp_plays enable row level security;
+
+-- Trash: deleted songs wait here until restored or deleted forever
+alter table public.sp_tracks add column if not exists deleted_at timestamptz;
+create index if not exists sp_tracks_deleted_idx on public.sp_tracks (deleted_at);

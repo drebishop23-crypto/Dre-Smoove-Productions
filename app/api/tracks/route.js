@@ -2,7 +2,7 @@ import { admin, withUrls, jsonError } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/tracks?source=ai|upload&playlist=<id>&workspace=<id>
+// GET /api/tracks?source=ai|upload&playlist=<id>&workspace=<id>&trash=1
 export async function GET(req) {
   try {
     const sb = admin();
@@ -10,6 +10,7 @@ export async function GET(req) {
     const source = searchParams.get('source');
     const playlist = searchParams.get('playlist');
     const workspace = searchParams.get('workspace');
+    const trash = searchParams.get('trash');
 
     if (playlist) {
       const { data, error } = await sb
@@ -18,14 +19,22 @@ export async function GET(req) {
         .eq('playlist_id', playlist)
         .order('position', { ascending: true });
       if (error) throw error;
-      const rows = (data || []).map((r) => r.sp_tracks).filter(Boolean);
+      const rows = (data || []).map((r) => r.sp_tracks).filter((t) => t && !t.deleted_at);
       return Response.json({ tracks: await withUrls(sb, rows) });
     }
 
-    let q = sb.from('sp_tracks').select('*').order('created_at', { ascending: false });
+    // Trash shows only deleted songs; everything else hides them
+    let q = trash
+      ? sb.from('sp_tracks').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })
+      : sb.from('sp_tracks').select('*').is('deleted_at', null).order('created_at', { ascending: false });
     if (source === 'ai' || source === 'upload') q = q.eq('source', source);
     if (workspace) q = q.eq('workspace_id', workspace);
-    const { data, error } = await q;
+    let { data, error } = await q;
+    // Before the Trash update is run in Supabase there is no deleted_at column yet
+    if (error && /deleted_at/.test(error.message)) {
+      if (trash) return Response.json({ tracks: [], needsUpdate: true });
+      ({ data, error } = await sb.from('sp_tracks').select('*').order('created_at', { ascending: false }));
+    }
     if (error) throw error;
     return Response.json({ tracks: await withUrls(sb, data || []) });
   } catch (e) {

@@ -29,6 +29,21 @@ export async function GET(_req, { params }) {
   }
 }
 
+// POST /api/tracks/:id { restore: true } — bring a song back from Trash
+export async function POST(req, { params }) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    if (!body.restore) return jsonError('Unknown action.');
+    const sb = admin();
+    const { data, error } = await sb.from('sp_tracks').update({ deleted_at: null }).eq('id', params.id).select().single();
+    if (error) throw error;
+    const [track] = await withUrls(sb, [data]);
+    return Response.json({ track });
+  } catch (e) {
+    return jsonError(e.message, 500);
+  }
+}
+
 // PATCH /api/tracks/:id — update metadata
 export async function PATCH(req, { params }) {
   try {
@@ -71,12 +86,20 @@ export async function PATCH(req, { params }) {
   }
 }
 
-// DELETE /api/tracks/:id — remove the row and its files
-export async function DELETE(_req, { params }) {
+// DELETE /api/tracks/:id — move to Trash
+// DELETE /api/tracks/:id?forever=1 — delete the row and its files for good (only from Trash)
+export async function DELETE(req, { params }) {
   try {
     const sb = admin();
+    const forever = new URL(req.url).searchParams.get('forever');
     const { data: row, error } = await sb.from('sp_tracks').select('*').eq('id', params.id).single();
     if (error) throw error;
+    if (!forever) {
+      const { error: upErr } = await sb.from('sp_tracks').update({ deleted_at: new Date().toISOString() }).eq('id', params.id);
+      if (upErr) throw upErr;
+      return Response.json({ ok: true, trashed: true });
+    }
+    if (!row.deleted_at) return jsonError('Move the song to Trash first.');
     await deleteObject(row.audio_path).catch(() => {});
     if (row.video_path) await deleteObject(row.video_path).catch(() => {});
     for (const path of Object.values(row.stems || {})) await deleteObject(path).catch(() => {});

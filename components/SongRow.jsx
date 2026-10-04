@@ -150,9 +150,9 @@ export default function SongRow({ track, list, actions, selectable = false, sele
         <button
           type="button"
           className="icon-btn hidden h-9 w-9 hover:!text-neon-pink sm:inline-flex"
-          aria-label={`Delete ${track.title}`}
-          title="Delete"
-          onClick={() => window.confirm(`Delete "${track.title}" forever? This can't be undone.`) && actions.remove(track)}
+          aria-label={`Move ${track.title} to Trash`}
+          title="Move to Trash"
+          onClick={() => actions.remove(track)}
         >
           <Trash2 className="h-4 w-4" />
         </button>

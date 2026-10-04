@@ -18,6 +18,7 @@ import {
   Pencil,
   Play,
   Plus,
+  RotateCcw,
   Search,
   Shuffle,
   SlidersHorizontal,
@@ -44,6 +45,7 @@ const TABS = [
   ['hooks', 'Hooks'],
   ['liked-hooks', 'Liked Hooks'],
   ['history', 'History'],
+  ['trash', 'Trash'],
 ];
 
 const FILTERS = [
@@ -221,13 +223,22 @@ export default function LibraryPage() {
   const [hooks, setHooks] = useState(null);
   const [history, setHistory] = useState(null);
   const [hookModal, setHookModal] = useState(false);
+  const [trash, setTrash] = useState(null);
+  const [trashBusy, setTrashBusy] = useState(null);
 
   const { actions, modals } = useSongActions({
     onUpdate: (t) => {
       setSongs((s) => s.map((x) => (x.id === t.id ? { ...x, ...t } : x)));
       setHistory((h) => h && h.map((x) => (x.id === t.id ? { ...x, ...t } : x)));
     },
-    onRemove: (t) => setSongs((s) => s.filter((x) => x.id !== t.id)),
+    onRemove: (t) => {
+      setSongs((s) => s.filter((x) => x.id !== t.id));
+      setTrash((tr) => (tr ? [{ ...t, deleted_at: new Date().toISOString() }, ...tr] : tr));
+    },
+    onRestore: (t) => {
+      setSongs((s) => [t, ...s.filter((x) => x.id !== t.id)]);
+      setTrash((tr) => tr && tr.filter((x) => x.id !== t.id));
+    },
   });
 
   const load = useCallback(async () => {
@@ -250,6 +261,7 @@ export default function LibraryPage() {
   useEffect(() => {
     if (tab === 'projects' && projects === null) api.listProjects().then((r) => setProjects(r.projects)).catch((e) => { setProjects([]); setError(e.message); });
     if ((tab === 'hooks' || tab === 'liked-hooks') && hooks === null) api.listHooks().then((r) => setHooks(r.hooks)).catch((e) => { setHooks([]); setError(e.message); });
+    if (tab === 'trash') api.listTracks({ trash: 1 }).then((r) => setTrash(r.tracks)).catch((e) => { setTrash([]); setError(e.message); });
     if (tab === 'history') api.history().then((r) => setHistory(r.history)).catch((e) => { setHistory([]); setError(e.message); });
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -654,6 +666,100 @@ export default function LibraryPage() {
       );
   }
 
+  if (tab === 'trash') {
+    const restore = async (t) => {
+      setTrashBusy(t.id);
+      try {
+        const { track } = await api.restoreTrack(t.id);
+        setTrash((tr) => tr.filter((x) => x.id !== t.id));
+        setSongs((s) => [track, ...s.filter((x) => x.id !== track.id)]);
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setTrashBusy(null);
+      }
+    };
+    const destroy = async (t, ask = true) => {
+      if (ask && !window.confirm(`Delete "${t.title}" forever? This can't be undone.`)) return;
+      setTrashBusy(t.id);
+      try {
+        await api.deleteForever(t.id);
+        setTrash((tr) => tr.filter((x) => x.id !== t.id));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setTrashBusy(null);
+      }
+    };
+    body =
+      trash === null ? (
+        <p className="flex items-center gap-2 px-2 py-10 text-sm text-ink-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading Trash</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-700 bg-ink-850 px-4 py-3">
+            <p className="text-sm text-ink-300">Songs here can be restored any time. Deleting forever also removes their audio, cover, video and stems.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-ghost rounded-full"
+                disabled={!trash.length || !!trashBusy}
+                onClick={async () => {
+                  setTrashBusy('all');
+                  for (const t of [...trash]) await restore(t);
+                  setTrashBusy(null);
+                }}
+              >
+                <RotateCcw className="h-4 w-4" /> Restore all
+              </button>
+              <button
+                type="button"
+                className="btn-ghost rounded-full hover:!text-neon-pink"
+                disabled={!trash.length || !!trashBusy}
+                onClick={async () => {
+                  if (!window.confirm(`Delete all ${trash.length} songs in Trash forever? This can't be undone.`)) return;
+                  setTrashBusy('all');
+                  for (const t of [...trash]) await destroy(t, false);
+                  setTrashBusy(null);
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Empty Trash
+              </button>
+            </div>
+          </div>
+          {error && <p className="px-2 text-sm text-neon-pink">{error}</p>}
+          {trash.length ? (
+            <ul className="flex flex-col gap-1">
+              {trash.map((t) => (
+                <li key={t.id} className="flex items-center gap-3 rounded-2xl p-2 hover:bg-ink-850">
+                  <TrackArt track={t} size={56} rounded="rounded-xl" className="opacity-70" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-white">{t.title}</div>
+                    <div className="truncate text-xs text-ink-400">
+                      Deleted {new Date(t.deleted_at).toLocaleDateString()} · {formatTime(t.duration)}
+                    </div>
+                  </div>
+                  {trashBusy === t.id ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-ink-400" />
+                  ) : (
+                    <>
+                      <button type="button" className="btn-ghost rounded-full text-xs" onClick={() => restore(t)} disabled={!!trashBusy}>
+                        <RotateCcw className="h-4 w-4" /> <span className="hidden sm:inline">Restore</span>
+                      </button>
+                      <button type="button" className="btn-ghost rounded-full text-xs hover:!text-neon-pink" onClick={() => destroy(t)} disabled={!!trashBusy} aria-label={`Delete ${t.title} forever`}>
+                        <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete forever</span>
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty icon={Trash2}>Trash is empty. Songs you delete wait here until you restore them or delete them forever.</Empty>
+          )}
+        </>
+      );
+  }
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
       <header className="flex items-center justify-between gap-3">
@@ -664,6 +770,9 @@ export default function LibraryPage() {
           </Link>
           <button type="button" className="btn-ghost h-10 rounded-full" onClick={() => setShowUpload(true)}>
             <Upload className="h-4 w-4" /> Audio
+          </button>
+          <button type="button" className={`btn-ghost h-10 w-10 rounded-full !px-0 ${tab === 'trash' ? '!border-white !text-white' : ''}`} onClick={() => go('trash')} aria-label="Trash" title="Trash">
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </header>

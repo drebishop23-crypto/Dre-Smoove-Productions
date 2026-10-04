@@ -7,7 +7,7 @@ export async function GET() {
     const sb = admin();
     const { data, error } = await sb.from('sp_hooks').select('*, sp_tracks(*)').order('created_at', { ascending: false });
     if (error) throw error;
-    const rows = (data || []).filter((h) => h.sp_tracks);
+    const rows = (data || []).filter((h) => h.sp_tracks && !h.sp_tracks.deleted_at);
     const tracks = await withUrls(sb, rows.map((h) => h.sp_tracks));
     return Response.json({
       hooks: rows.map(({ sp_tracks, ...h }, i) => ({ ...h, track: tracks[i] })),

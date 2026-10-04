@@ -256,12 +256,8 @@ export default function SongMenu({ track, actions, className = '', triggerClass 
             </button>
           ))}
           <div className="my-1 border-t border-ink-700" />
-          <button
-            type="button"
-            className={`${item} !text-neon-pink`}
-            onClick={run(() => window.confirm(`Delete "${t.title}" forever? This can't be undone.`) && a.remove(t))}
-          >
-            <Trash2 className="h-4 w-4" /> Delete song
+          <button type="button" className={`${item} !text-neon-pink`} onClick={run(() => a.remove(t))}>
+            <Trash2 className="h-4 w-4" /> Move to Trash
           </button>
         </>
       );
@@ -306,15 +302,9 @@ export default function SongMenu({ track, actions, className = '', triggerClass 
       </button>
       {subItem('playlist', 'Add to Playlist', Plus)}
       <div className="my-1 border-t border-ink-700" onMouseEnter={hoverClear} />
-      {confirmDelete ? (
-        <button type="button" className={`${item} !text-neon-pink`} onClick={run(() => a.remove(t))}>
-          <Trash2 className="h-4 w-4" /> Confirm: delete forever
-        </button>
-      ) : (
-        <button type="button" className={`${item} text-ink-300`} onMouseEnter={hoverClear} onClick={() => setConfirmDelete(true)}>
-          <Trash2 className={icon} /> Delete
-        </button>
-      )}
+      <button type="button" className={`${item} text-ink-300`} onMouseEnter={hoverClear} onClick={run(() => a.remove(t))}>
+        <Trash2 className={icon} /> Move to Trash
+      </button>
     </>
   );
 

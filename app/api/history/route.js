@@ -12,7 +12,8 @@ export async function GET() {
     for (const r of data || []) if (!seen.has(r.track_id)) seen.set(r.track_id, r.played_at);
     const ids = [...seen.keys()].slice(0, 100);
     if (!ids.length) return Response.json({ history: [] });
-    const { data: rows, error: tErr } = await sb.from('sp_tracks').select('*').in('id', ids);
+    let { data: rows, error: tErr } = await sb.from('sp_tracks').select('*').in('id', ids).is('deleted_at', null);
+    if (tErr) ({ data: rows, error: tErr } = await sb.from('sp_tracks').select('*').in('id', ids));
     if (tErr) throw tErr;
     const tracks = await withUrls(sb, rows || []);
     const byId = Object.fromEntries(tracks.map((t) => [t.id, t]));

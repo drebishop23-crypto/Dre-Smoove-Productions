@@ -11,7 +11,8 @@ async function load(sb) {
   const { data, error } = await sb.from('sp_profile').select('*').eq('id', 1).maybeSingle();
   if (error) throw error;
   const profile = data || { id: 1, display_name: 'Dré Smoove', handle: 'dresmoove', genres: [], profile_views: 0 };
-  const { data: stats } = await sb.from('sp_tracks').select('plays, likes');
+  let { data: stats, error: statsErr } = await sb.from('sp_tracks').select('plays, likes').is('deleted_at', null);
+  if (statsErr) ({ data: stats } = await sb.from('sp_tracks').select('plays, likes'));
   const songs = stats?.length || 0;
   const plays = (stats || []).reduce((s, r) => s + (r.plays || 0), 0);
   const likes = (stats || []).reduce((s, r) => s + (r.likes || 0), 0);

@@ -10,7 +10,7 @@ import { downloadTrack } from '@/lib/audio';
 
 // Everything the ••• song menu can do, plus the dialogs it opens.
 // Pages pass callbacks so their own song lists stay up to date.
-export function useSongActions({ onUpdate, onRemove } = {}) {
+export function useSongActions({ onUpdate, onRemove, onRestore } = {}) {
   const router = useRouter();
   const { syncTrack, removeTrack, addToQueue } = usePlayer();
   const [playlists, setPlaylists] = useState([]);
@@ -18,9 +18,10 @@ export function useSongActions({ onUpdate, onRemove } = {}) {
   const [modal, setModal] = useState(null); // { type, track }
   const [toast, setToast] = useState(null);
 
-  const flash = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2600);
+  const flash = useCallback((msg, action) => {
+    const id = Date.now();
+    setToast({ id, msg, action });
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), action ? 6000 : 2600);
   }, []);
 
   const loadLists = useCallback(async () => {
@@ -115,14 +116,22 @@ export function useSongActions({ onUpdate, onRemove } = {}) {
         flash(e.message);
       }
     },
+    // Moves the song to Trash. It can be restored from Library › Trash.
     remove: async (t) => {
       try {
         await api.deleteTrack(t.id);
         removeTrack(t.id);
         onRemove?.(t);
-        flash(`Deleted “${t.title}”`);
+        flash(`Moved “${t.title}” to Trash`, {
+          label: 'Undo',
+          run: async () => {
+            const { track } = await api.restoreTrack(t.id);
+            onRestore?.(track);
+            flash(`Restored “${track.title}”`);
+          },
+        });
       } catch (e) {
-        flash(e.message);
+        flash(/deleted_at/.test(e.message) ? 'Run the Trash update (update-5.sql) in Supabase first.' : e.message);
       }
     },
     remix: (kind, t) => router.push(`/create?remix=${kind}&from=${t.id}`),
@@ -183,8 +192,21 @@ export function useSongActions({ onUpdate, onRemove } = {}) {
         />
       )}
       {toast && (
-        <div role="status" className="fixed left-1/2 top-5 z-[80] -translate-x-1/2 rounded-full border border-ink-600 bg-ink-800 px-4 py-2 text-sm text-white shadow-2xl">
-          {toast}
+        <div role="status" className="fixed left-1/2 top-5 z-[80] flex max-w-[92vw] -translate-x-1/2 items-center gap-3 rounded-full border border-ink-600 bg-ink-800 px-4 py-2 text-sm text-white shadow-2xl">
+          <span className="truncate">{toast.msg}</span>
+          {toast.action && (
+            <button
+              type="button"
+              className="shrink-0 font-semibold text-gold hover:underline"
+              onClick={() => {
+                const a = toast.action;
+                setToast(null);
+                a.run().catch((e) => flash(e.message));
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </>
