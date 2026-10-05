@@ -25,6 +25,8 @@ export function useSongActions({ onUpdate, onRemove, onRestore } = {}) {
   }, []);
 
   const loadLists = useCallback(async () => {
+    if (api.peek('playlists')) setPlaylists(api.peek('playlists').playlists);
+    if (api.peek('workspaces')) setWorkspaces(api.peek('workspaces').workspaces);
     const [p, w] = await Promise.allSettled([api.listPlaylists(), api.listWorkspaces()]);
     if (p.status === 'fulfilled') setPlaylists(p.value.playlists);
     if (w.status === 'fulfilled') setWorkspaces(w.value.workspaces);

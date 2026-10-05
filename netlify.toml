@@ -1,0 +1,3 @@
+# Lets Netlify's image CDN make small, cached versions of your album covers
+[images]
+  remote_images = ["https://wtyehjzxcazoksuqvixu\\.supabase\\.co/storage/.*"]

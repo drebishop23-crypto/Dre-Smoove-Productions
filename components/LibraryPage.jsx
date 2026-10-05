@@ -31,6 +31,7 @@ import { api } from '@/lib/api';
 import { usePlayer } from '@/components/PlayerProvider';
 import SongRow from '@/components/SongRow';
 import TrackArt from '@/components/TrackArt';
+import { onThumbError, thumb } from '@/lib/img';
 import Modal from '@/components/Modal';
 import { UploadModal } from '@/components/SongModals';
 import { useSongActions } from '@/components/SongActions';
@@ -242,7 +243,9 @@ export default function LibraryPage() {
   });
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const cached = api.peek('tracks');
+    if (cached) setSongs(cached.tracks);
+    setLoading(!cached);
     setError(null);
     try {
       const { tracks } = await api.listTracks();
@@ -259,7 +262,8 @@ export default function LibraryPage() {
   }, [load]);
 
   useEffect(() => {
-    if (tab === 'projects' && projects === null) api.listProjects().then((r) => setProjects(r.projects)).catch((e) => { setProjects([]); setError(e.message); });
+    if (tab === 'projects' && projects === null && api.peek('projects')) setProjects(api.peek('projects').projects);
+    if (tab === 'projects') api.listProjects().then((r) => setProjects(r.projects)).catch((e) => { setProjects([]); setError(e.message); });
     if ((tab === 'hooks' || tab === 'liked-hooks') && hooks === null) api.listHooks().then((r) => setHooks(r.hooks)).catch((e) => { setHooks([]); setError(e.message); });
     if (tab === 'trash') api.listTracks({ trash: 1 }).then((r) => setTrash(r.tracks)).catch((e) => { setTrash([]); setError(e.message); });
     if (tab === 'history') api.history().then((r) => setHistory(r.history)).catch((e) => { setHistory([]); setError(e.message); });
@@ -585,7 +589,7 @@ export default function LibraryPage() {
             {withArt.map((t) => (
               <div key={t.id} className="flex flex-col gap-2">
                 <button type="button" className="group relative overflow-hidden rounded-2xl" onClick={() => actions.open('cover', t)}>
-                  <img src={t.artwork_url} alt={`Cover art for ${t.title}`} className="aspect-square w-full object-cover transition group-hover:scale-[1.03]" />
+                  <img src={thumb(t.artwork_url, 260)} onError={(e) => onThumbError(e, t.artwork_url)} loading="lazy" alt={`Cover art for ${t.title}`} className="aspect-square w-full object-cover transition group-hover:scale-[1.03]" />
                   <span className="absolute inset-x-2 bottom-2 rounded-full bg-ink-950/80 px-3 py-1 text-center text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">Make new art</span>
                 </button>
                 <div className="truncate text-sm font-semibold text-white">{t.title}</div>

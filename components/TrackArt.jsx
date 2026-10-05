@@ -1,4 +1,5 @@
 'use client';
+import { onThumbError, thumb } from '@/lib/img';
 
 const GRADIENTS = [
   ['#2ee6d6', '#9d7bff'],
@@ -21,8 +22,11 @@ export default function TrackArt({ track, size = 48, className = '', rounded = '
   if (track?.artwork_url) {
     return (
       <img
-        src={track.artwork_url}
+        src={thumb(track.artwork_url, size)}
+        onError={(e) => onThumbError(e, track.artwork_url)}
         alt=""
+        loading="lazy"
+        decoding="async"
         style={style}
         className={`shrink-0 object-cover ${rounded} ${className}`}
       />

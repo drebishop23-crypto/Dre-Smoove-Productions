@@ -20,6 +20,7 @@ import {
 import { api } from '@/lib/api';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
+import { onThumbError, thumb } from '@/lib/img';
 import SongMenu from '@/components/SongMenu';
 import { useSongActions } from '@/components/SongActions';
 import Modal from '@/components/Modal';
@@ -260,6 +261,10 @@ export default function ProfilePage() {
   });
 
   const load = useCallback(async (countView) => {
+    const cp = api.peek('profile');
+    const ct = api.peek('tracks');
+    if (cp) setProfile(cp.profile);
+    if (ct) setTracks(ct.tracks);
     try {
       const [{ profile }, { tracks }] = await Promise.all([api.getProfile(countView), api.listTracks()]);
       setProfile(profile);
@@ -317,7 +322,7 @@ export default function ProfilePage() {
         {/* The whole banner image is stretched to fill the space, so nothing is ever cut off. Name and buttons sit below it. */}
         <div className="relative aspect-square overflow-hidden bg-black sm:aspect-[5/2]">
           {profile.banner_url ? (
-            <img src={profile.banner_url} alt="" className="absolute inset-0 h-full w-full object-fill" />
+            <img src={thumb(profile.banner_url, 1400, 0)} onError={(e) => onThumbError(e, profile.banner_url)} alt="" className="absolute inset-0 h-full w-full object-fill" />
           ) : (
             <div
               className="absolute inset-0"
@@ -329,7 +334,7 @@ export default function ProfilePage() {
             <div className="flex items-end gap-4">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-ink-800 ring-4 ring-gold/80 sm:h-28 sm:w-28">
                 {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                  <img src={thumb(profile.avatar_url, 112)} onError={(e) => onThumbError(e, profile.avatar_url)} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center font-display text-3xl font-extrabold text-gold">
                     {profile.display_name.split(' ').map((w) => w[0]).join('').slice(0, 2)}

@@ -52,7 +52,7 @@ const readJobs = () => {
 };
 const writeJobs = (jobs) => {
   try {
-    localStorage.setItem(JOBS_KEY, JSON.stringify(jobs.filter((j) => !['failed', 'canceled'].includes(j.status))));
+    localStorage.setItem(JOBS_KEY, JSON.stringify(jobs.filter((j) => !['failed', 'canceled'].includes(j.status) && !String(j.id).startsWith('local-'))));
   } catch {}
 };
 
@@ -239,7 +239,9 @@ export default function CreatePage() {
   });
 
   const loadSongs = useCallback(async () => {
-    setLoadingSongs(true);
+    const cached = api.peek('tracks');
+    if (cached) setSongs(cached.tracks);
+    setLoadingSongs(!cached);
     try {
       const { tracks } = await api.listTracks();
       setSongs(tracks);
@@ -303,6 +305,7 @@ export default function CreatePage() {
     let alive = true;
     const t = setTimeout(async () => {
       for (const job of pending) {
+        if (String(job.id).startsWith('local-')) continue;
         try {
           const res = await api.pollGeneration(job.id);
           if (!alive) return;
@@ -413,19 +416,35 @@ export default function CreatePage() {
         }
       } else if (mode === 'simple') {
         if (description.trim().length < 3) throw new Error('Describe the song you want.');
-        let words = '';
-        let autoTitle = '';
-        if (!instrumental) {
+        // Show the song in the list right away; lyrics get written and the song starts in the background
+        const desc = description.trim();
+        const inst = instrumental;
+        const count = versions;
+        const placeholder = { id: `local-${Date.now()}`, title: base.title || desc.slice(0, 60), status: 'starting', startedAt: Date.now(), note: inst ? 'Starting' : 'Writing the lyrics' };
+        setJobs((js) => [placeholder, ...js]);
+        (async () => {
           try {
-            const res = await api.writeLyrics(description);
-            words = res.lyrics;
-            autoTitle = res.title;
-          } catch {
-            // The song model can write its own lyrics if the lyric writer is busy
+            let words = '';
+            let autoTitle = '';
+            if (!inst) {
+              try {
+                const res = await api.writeLyrics(desc);
+                words = res.lyrics;
+                autoTitle = res.title;
+              } catch {
+                // The song model can write its own lyrics if the lyric writer is busy
+              }
+            }
+            for (let i = 0; i < count; i++) {
+              const res = await api.generate({ ...base, kind: 'song', prompt: desc, lyrics: words.slice(0, LIMIT.lyrics), instrumental: inst, title: base.title || autoTitle, tags: [] });
+              addJob(res, null);
+            }
+            setJobs((js) => js.filter((j) => j.id !== placeholder.id));
+          } catch (err) {
+            setJobs((js) => js.map((j) => (j.id === placeholder.id ? { ...j, status: 'failed', error: err.message } : j)));
           }
-        }
-        for (let i = 0; i < versions; i++)
-          runs.push({ kind: 'song', prompt: description.trim(), lyrics: words.slice(0, LIMIT.lyrics), instrumental, title: base.title || autoTitle, tags: [] });
+        })();
+        return;
       } else if (model === 'instrumental') {
         if (fullPrompt.length < 3) throw new Error('Add some styles for the beat.');
         for (let i = 0; i < versions; i++) runs.push({ kind: 'instrumental', prompt: fullPrompt, duration: beatSeconds, tags: styles.split(',').map((s) => s.trim()).filter(Boolean) });

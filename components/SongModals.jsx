@@ -58,33 +58,44 @@ export function UploadModal({ onClose, onUploaded }) {
 
   const update = (key, patch) => setItems((cur) => cur.map((i) => (i.key === key ? { ...i, ...patch } : i)));
 
+  // Length from the file's header: instant, even for a big WAV (no full decode)
+  const readDuration = (file) =>
+    new Promise((resolve) => {
+      const a = new Audio();
+      const url = URL.createObjectURL(file);
+      const done = (d) => {
+        URL.revokeObjectURL(url);
+        resolve(Number.isFinite(d) ? Math.round(d * 10) / 10 : null);
+      };
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => done(a.duration);
+      a.onerror = () => done(null);
+      a.src = url;
+    });
+
   const start = async () => {
     setRunning(true);
     const tagList = tags.split(',').map((t) => t.trim()).filter(Boolean);
-    for (const item of items) {
-      if (item.status === 'done') continue;
-      update(item.key, { status: 'uploading', error: null });
-      try {
-        let peaks = null;
-        let duration = null;
+    const queue = items.filter((i) => i.status !== 'done');
+    // Two uploads at a time
+    const worker = async () => {
+      for (let item = queue.shift(); item; item = queue.shift()) {
+        update(item.key, { status: 'uploading', error: null, progress: 0 });
         try {
-          const buf = await decodeFromFile(item.file);
-          peaks = peaksFromBuffer(buf);
-          duration = Math.round(buf.duration * 10) / 10;
-        } catch {}
-        const { track } = await api.uploadTrack(item.file, {
-          title: item.title || titleFromFile(item.file.name),
-          tags: tagList,
-          release_date: releaseDate || null,
-          peaks,
-          duration,
-        });
-        update(item.key, { status: 'done' });
-        onUploaded(track);
-      } catch (e) {
-        update(item.key, { status: 'error', error: e.message });
+          const duration = await readDuration(item.file);
+          const { track } = await api.uploadTrack(
+            item.file,
+            { title: item.title || titleFromFile(item.file.name), tags: tagList, release_date: releaseDate || null, duration },
+            (p) => update(item.key, { progress: p })
+          );
+          update(item.key, { status: 'done' });
+          onUploaded(track);
+        } catch (e) {
+          update(item.key, { status: 'error', error: e.message });
+        }
       }
-    }
+    };
+    await Promise.all([worker(), worker()]);
     setRunning(false);
   };
 
@@ -163,7 +174,11 @@ export function UploadModal({ onClose, onUploaded }) {
                 <span className="hidden font-mono text-[11px] text-ink-500 sm:inline">
                   {(i.file.size / 1048576).toFixed(1)} MB
                 </span>
-                {i.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-neon-cyan" />}
+                {i.status === 'uploading' && (
+                  <span className="flex items-center gap-1.5 font-mono text-[11px] text-neon-cyan">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {Math.round((i.progress || 0) * 100)}%
+                  </span>
+                )}
                 {i.status === 'done' && <CheckCircle2 className="h-4 w-4 text-neon-cyan" />}
                 {i.status === 'error' && (
                   <span title={i.error} className="flex items-center gap-1 text-xs text-neon-pink">

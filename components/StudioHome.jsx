@@ -76,6 +76,8 @@ export default function StudioHome() {
       newProject(null);
       return;
     }
+    if (api.peek('projects')) setProjects(api.peek('projects').projects);
+    if (api.peek('tracks')) setSongs(api.peek('tracks').tracks);
     api.listProjects().then((r) => setProjects(r.projects)).catch((e) => { setError(e.message); setProjects([]); });
     api.listTracks().then((r) => setSongs(r.tracks)).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
