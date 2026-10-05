@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Check, ImagePlus, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
+import { Check, ImagePlus, Loader2, Move, RotateCcw, Sparkles, X } from 'lucide-react';
+import PhotoPositioner from '@/components/PhotoPositioner';
 import Modal from '@/components/Modal';
 import { api } from '@/lib/api';
 
@@ -11,35 +12,6 @@ const LOOKS = [
   'Brooklyn rooftop at dusk, moody cinematic lighting',
   'Abstract liquid gold and teal waves, glossy, modern',
 ];
-
-// Square-crop a photo in the browser (centered), up to 3000px, as JPEG. Banners keep their shape.
-async function preparePhoto(file, square) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = () => rej(new Error('That file is not a photo the browser can open. Try a JPG or PNG.'));
-      i.src = url;
-    });
-    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-    if (square) {
-      const side = Math.min(sw, sh);
-      sx = (sw - side) / 2;
-      sy = (sh - side) / 2;
-      sw = sh = side;
-    }
-    const scale = Math.min(1, 3000 / Math.max(sw, sh));
-    const c = document.createElement('canvas');
-    c.width = Math.round(sw * scale);
-    c.height = Math.round(sh * scale);
-    c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
-    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
-    return new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 // Album covers: use your own photo as-is, turn your photo into AI covers, or make 4 AI covers from a description.
 // target: 'track' (needs trackId) | 'avatar' | 'banner'
@@ -54,14 +26,24 @@ export default function CoverGenerator({ initialPrompt = '', target = 'track', t
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
-  const pickPhoto = async (file) => {
+  const [rawFile, setRawFile] = useState(null); // photo being positioned
+
+  const pickPhoto = (file) => {
     if (!file) return;
+    if (!file.type.startsWith('image/')) return setError('That file is not a photo. Try a JPG or PNG.');
+    setError(null);
+    setRawFile(file);
+  };
+
+  // After positioning: upload the framed photo
+  const placed = async (ready) => {
+    const raw = rawFile;
     setUploading(true);
     setError(null);
     try {
-      const ready = await preparePhoto(file, target !== 'banner');
       const path = await api.uploadImage(ready);
-      setPhoto({ path, preview: URL.createObjectURL(ready) });
+      setPhoto({ path, preview: URL.createObjectURL(ready), raw });
+      setRawFile(null);
       setImages([]);
       setPicked(null);
     } catch (e) {
@@ -170,7 +152,9 @@ export default function CoverGenerator({ initialPrompt = '', target = 'track', t
       <div className="flex flex-col gap-4">
         <div className="rounded-xl border border-ink-700 bg-ink-850 p-3">
           <div className="label mb-2">Your photo</div>
-          {photo ? (
+          {rawFile ? (
+            <PhotoPositioner file={rawFile} aspect={target === 'banner' ? 2.5 : 1} busy={uploading} onDone={placed} onCancel={() => setRawFile(null)} />
+          ) : photo ? (
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <img src={photo.preview} alt="Your uploaded photo" className={`${target === 'banner' ? 'h-20 w-auto' : 'h-24 w-24'} rounded-lg object-cover`} />
@@ -181,6 +165,9 @@ export default function CoverGenerator({ initialPrompt = '', target = 'track', t
               <div className="flex flex-col gap-2">
                 <button type="button" className="btn-primary" onClick={savePhoto} disabled={saving || busy}>
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Use my photo as is
+                </button>
+                <button type="button" className="btn-ghost" onClick={() => setRawFile(photo.raw)} disabled={saving || busy}>
+                  <Move className="h-4 w-4" /> Adjust position
                 </button>
                 <span className="text-xs text-ink-400">Or describe a style below and make AI versions of it.</span>
               </div>
