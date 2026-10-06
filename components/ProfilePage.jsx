@@ -277,7 +277,16 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setLiked(readLiked());
-    load(!isOwner());
+    // Count a view only for visitors, and only once a day per browser (refreshing doesn't add more)
+    let count = !isOwner();
+    if (count) {
+      try {
+        const last = Number(localStorage.getItem('sp-viewed') || 0);
+        if (Date.now() - last < 24 * 60 * 60 * 1000) count = false;
+        else localStorage.setItem('sp-viewed', String(Date.now()));
+      } catch {}
+    }
+    load(count);
   }, [load]);
 
   const sorted = useMemo(() => {
