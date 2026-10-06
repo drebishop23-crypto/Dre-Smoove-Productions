@@ -2,7 +2,7 @@ import { admin, jsonError } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/tracks/:id/stats { action: 'play' | 'like' | 'unlike' | 'dislike' | 'undislike' }
+// POST /api/tracks/:id/stats { action: 'play' | 'play-own' | 'like' | 'unlike' | 'dislike' | 'undislike' }
 export async function POST(req, { params }) {
   try {
     const { action } = await req.json();
@@ -10,6 +10,10 @@ export async function POST(req, { params }) {
     const { data: row, error } = await sb.from('sp_tracks').select('plays, likes, liked, disliked').eq('id', params.id).single();
     if (error) throw error;
     const patch = {};
+    if (action === 'play-own') {
+      await sb.from('sp_plays').insert({ track_id: params.id }).then(() => {}, () => {});
+      return Response.json(row);
+    }
     if (action === 'play') {
       patch.plays = (row.plays || 0) + 1;
       await sb.from('sp_plays').insert({ track_id: params.id }).then(() => {}, () => {});

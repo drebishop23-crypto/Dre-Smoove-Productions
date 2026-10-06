@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { isOwner } from '@/lib/owner';
 
 const PlayerContext = createContext(null);
 
@@ -78,7 +79,8 @@ export function PlayerProvider({ children }) {
     setDuration(current.duration || 0);
     a.src = current.url;
     a.play().catch(() => setPlaying(false));
-    api.trackStat?.(current.id, 'play').catch?.(() => {});
+    // Your own plays go in your History but don't raise the public play count
+    api.trackStat?.(current.id, isOwner() ? 'play-own' : 'play').catch?.(() => {});
   }, [current?.id, current?.url]);
 
   useEffect(() => {

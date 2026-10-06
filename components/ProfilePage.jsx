@@ -21,6 +21,7 @@ import { api } from '@/lib/api';
 import { usePlayer } from '@/components/PlayerProvider';
 import TrackArt from '@/components/TrackArt';
 import { onThumbError, thumb } from '@/lib/img';
+import { isOwner } from '@/lib/owner';
 import SongMenu from '@/components/SongMenu';
 import { useSongActions } from '@/components/SongActions';
 import Modal from '@/components/Modal';
@@ -276,7 +277,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setLiked(readLiked());
-    load(true);
+    load(!isOwner());
   }, [load]);
 
   const sorted = useMemo(() => {

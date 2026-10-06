@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+import { markOwner } from '@/lib/owner';
 import { AudioWaveform, Library, Link2, SlidersHorizontal, Sparkles, UserRound } from 'lucide-react';
 import { PlayerProvider, usePlayer } from '@/components/PlayerProvider';
 import PlayerBar from '@/components/PlayerBar';
@@ -70,6 +72,10 @@ function NowPlayingMini() {
 
 function Shell({ children }) {
   const pathname = usePathname() || '/create';
+  // Your working pages mark this device as yours (visitors only see Profile and song pages)
+  useEffect(() => {
+    if (!/^\/(profile|song)(\/|$)/.test(pathname) && pathname !== '/') markOwner();
+  }, [pathname]);
   const { current } = usePlayer();
 
   return (
