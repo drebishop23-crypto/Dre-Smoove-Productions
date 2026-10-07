@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  Upload,
   Wand2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -160,6 +161,79 @@ export default function VideoStudio({ trackId }) {
     }
   };
 
+  // Your own video file (MP4/MOV) as the song's video
+  const [uploadPct, setUploadPct] = useState(null);
+  const uploadOwn = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('video/')) return setError('That file is not a video. Use an MP4 or MOV.');
+    setError(null);
+    setUploadPct(0);
+    try {
+      const { track: saved } = await api.saveVideo(trackId, file, setUploadPct);
+      setTrack(saved);
+      setNewVersion(false);
+      setBuiltUrl(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploadPct(null);
+    }
+  };
+
+  // Free video: the cover art (on a blurred copy of itself) with the song
+  const makeCoverVideo = async () => {
+    setError(null);
+    setBuild({ stage: 'Drawing the cover', pct: 0 });
+    try {
+      const W = 1280, H = 720;
+      const c = document.createElement('canvas');
+      c.width = W;
+      c.height = H;
+      const g = c.getContext('2d');
+      g.fillStyle = '#07090e';
+      g.fillRect(0, 0, W, H);
+      if (track.artwork_url) {
+        const img = await new Promise((res, rej) => {
+          const i = new Image();
+          i.crossOrigin = 'anonymous';
+          i.onload = () => res(i);
+          i.onerror = () => rej(new Error('Could not load the cover art.'));
+          i.src = track.artwork_url;
+        });
+        const bg = Math.max(W / img.naturalWidth, H / img.naturalHeight) * 1.1;
+        g.filter = 'blur(30px) brightness(0.45)';
+        g.drawImage(img, (W - img.naturalWidth * bg) / 2, (H - img.naturalHeight * bg) / 2, img.naturalWidth * bg, img.naturalHeight * bg);
+        g.filter = 'none';
+        const side = 600;
+        g.shadowColor = 'rgba(0,0,0,.6)';
+        g.shadowBlur = 40;
+        g.drawImage(img, (W - side) / 2, (H - side) / 2, side, side);
+        g.shadowBlur = 0;
+      } else {
+        g.fillStyle = '#e8b94a';
+        g.font = 'bold 64px sans-serif';
+        g.textAlign = 'center';
+        g.fillText(track.title, W / 2, H / 2);
+        g.font = '32px sans-serif';
+        g.fillStyle = '#c6cedc';
+        g.fillText(track.artist || 'Dré Smoove', W / 2, H / 2 + 56);
+      }
+      const frame = await new Promise((r) => c.toBlob(r, 'image/png'));
+      const { coverVideo } = await import('@/lib/stitch');
+      const blob = await coverVideo({ frame, audioUrl: track.url, audioExt: track.format || 'wav', onProgress: setBuild });
+      builtBlob.current = blob;
+      setBuiltUrl(URL.createObjectURL(blob));
+      setBuild({ stage: 'Saving to your vault', pct: 100 });
+      const { track: saved } = await api.saveVideo(trackId, blob);
+      setTrack(saved);
+      setNewVersion(false);
+      setBuild(null);
+    } catch (e) {
+      setBuild(null);
+      setError(e.message || 'The cover video could not be made.');
+    }
+  };
+
   const buildVideo = async () => {
     setError(null);
     setBuild({ stage: 'Starting', pct: 0 });
@@ -214,7 +288,7 @@ export default function VideoStudio({ trackId }) {
       <header className="flex flex-wrap items-center gap-4">
         <TrackArt track={track} size={72} rounded="rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="label mb-1">AI music video</div>
+          <div className="label mb-1">Music video</div>
           <h1 className="truncate font-display text-2xl font-extrabold text-gold">{track.title}</h1>
           <p className="font-mono text-xs text-ink-400">
             {duration ? formatTime(duration) : 'Length unknown'} · {needed} clips of ~5 seconds
@@ -309,9 +383,36 @@ export default function VideoStudio({ trackId }) {
         </div>
       )}
 
+      {/* Quick options: your own video, or a free cover-art video */}
+      {!job && !hasVideo && !builtUrl && (
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="panel flex flex-col gap-3 p-5">
+            <h2 className="font-display text-lg font-bold text-white">Upload your own video</h2>
+            <p className="text-sm text-ink-400">Already have a video for this song? Add the MP4 or MOV here, then send it to YouTube.</p>
+            <label className={`btn-ghost mt-auto w-fit cursor-pointer ${uploadPct !== null ? 'pointer-events-none opacity-60' : ''}`}>
+              {uploadPct !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploadPct !== null ? `Uploading ${Math.round(uploadPct * 100)}%` : 'Choose video file'}
+              <input type="file" accept="video/*" className="hidden" onChange={(e) => { uploadOwn(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+          </div>
+          <div className="panel flex flex-col gap-3 p-5">
+            <h2 className="font-display text-lg font-bold text-white">Cover art video (free)</h2>
+            <p className="text-sm text-ink-400">Your album cover on screen while the whole song plays. The usual way artists post music to YouTube. Made on your computer, no cost.</p>
+            {build ? (
+              <p className="mt-auto flex items-center gap-2 text-sm text-gold"><Loader2 className="h-4 w-4 animate-spin" /> {build.stage} {Math.round(build.pct)}%</p>
+            ) : (
+              <button type="button" className="btn-primary mt-auto w-fit" onClick={makeCoverVideo}>
+                <Film className="h-4 w-4" /> Make cover video
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* New video form */}
       {!job && !hasVideo && !builtUrl && (
         <section className="panel flex flex-col gap-5 p-5">
+          <h2 className="font-display text-lg font-bold text-white">Or make a full AI music video</h2>
           <div>
             <label htmlFor="video-look" className="label mb-2 block">Look &amp; feel for the whole video</label>
             <textarea id="video-look" rows={2} className="field resize-y" value={look} onChange={(e) => setLook(e.target.value)} />

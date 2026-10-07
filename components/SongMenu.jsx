@@ -233,7 +233,7 @@ export default function SongMenu({ track, actions, className = '', triggerClass 
             <FileText className={icon} /> {t.lyrics ? 'Lyrics' : 'Add Lyrics'}
           </button>
           <Link href={`/video/${t.id}`} className={item} onClick={() => setOpen(false)}>
-            <Clapperboard className={icon} /> {t.video_path ? 'Music Video' : 'Make Music Video'}
+            <Clapperboard className={icon} /> {t.video_path ? 'Music Video' : 'Music Video (make or upload)'}
           </Link>
           <button type="button" className={item} onClick={run(() => a.open('release', t))}>
             <Send className={icon} /> Release (YouTube, SoundCloud, DistroKid)
