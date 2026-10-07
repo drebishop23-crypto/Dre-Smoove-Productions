@@ -221,6 +221,11 @@ export default function SongMenu({ track, actions, className = '', triggerClass 
           <button type="button" className={item} onClick={run(() => a.open('details', t))}>
             <Info className={icon} /> Song Details
           </button>
+          {(t.format || 'mp3') !== 'wav' && (
+            <button type="button" className={item} onClick={run(() => a.convertToWav(t))}>
+              <AudioLines className={icon} /> Convert to WAV
+            </button>
+          )}
           <button type="button" className={item} onClick={run(() => a.open('cover', t))}>
             <ImageIcon className={icon} /> Create Cover Art
           </button>

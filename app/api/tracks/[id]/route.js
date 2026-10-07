@@ -14,6 +14,7 @@ const EDITABLE = [
   'title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics',
   'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url', 'lyrics_synced',
   'is_public', 'pinned', 'allow_remixes', 'allow_comments', 'liked', 'disliked', 'workspace_id', 'instrumental',
+  'audio_path', 'format',
 ];
 
 // GET /api/tracks/:id — one song, plus its versions
@@ -69,6 +70,14 @@ export async function PATCH(req, { params }) {
 
     if ('workspace_id' in patch && !patch.workspace_id) patch.workspace_id = null;
 
+    // Swapping the audio file (e.g. converted to WAV): only accept files in your own storage, remove the old one after
+    let oldAudio = null;
+    if ('audio_path' in patch) {
+      if (!/^(uploads|ai|edits|studio)\//.test(patch.audio_path || '')) return jsonError('Unknown audio file.');
+      const { data: cur } = await sb.from('sp_tracks').select('audio_path').eq('id', params.id).single();
+      if (cur?.audio_path && cur.audio_path !== patch.audio_path) oldAudio = cur.audio_path;
+    }
+
     // Remove the old artwork file when a new one replaces it (unless another version still uses it)
     if (patch.artwork_path) {
       const { data: old } = await sb.from('sp_tracks').select('artwork_path').eq('id', params.id).single();
@@ -79,6 +88,7 @@ export async function PATCH(req, { params }) {
 
     const { data, error } = await sb.from('sp_tracks').update(patch).eq('id', params.id).select().single();
     if (error) throw error;
+    if (oldAudio) await deleteObject(oldAudio).catch(() => {});
     const [track] = await withUrls(sb, [data]);
     return Response.json({ track });
   } catch (e) {

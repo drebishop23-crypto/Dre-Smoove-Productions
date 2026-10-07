@@ -24,7 +24,7 @@ import TrackArt from '@/components/TrackArt';
 import CoverGenerator from '@/components/CoverGenerator';
 import SyncedLyrics from '@/components/SyncedLyrics';
 import LyricSync from '@/components/LyricSync';
-import { decodeFromFile, downloadBlob, formatTime, peaksFromBuffer, safeFilename } from '@/lib/audio';
+import { decodeFromFile, decodeFromUrl, downloadBlob, encodeWav, formatTime, peaksFromBuffer, safeFilename } from '@/lib/audio';
 
 const AUDIO_ACCEPT = 'audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.aif,.aiff';
 
@@ -44,6 +44,7 @@ export function UploadModal({ onClose, onUploaded }) {
   const [items, setItems] = useState([]);
   const [tags, setTags] = useState('');
   const [releaseDate, setReleaseDate] = useState('');
+  const [toWav, setToWav] = useState(false);
   const [drag, setDrag] = useState(false);
   const [running, setRunning] = useState(false);
   const inputRef = useRef(null);
@@ -82,9 +83,17 @@ export function UploadModal({ onClose, onUploaded }) {
       for (let item = queue.shift(); item; item = queue.shift()) {
         update(item.key, { status: 'uploading', error: null, progress: 0 });
         try {
-          const duration = await readDuration(item.file);
+          let file = item.file;
+          // Optional: turn MP3/M4A/etc. into WAV in the browser before uploading
+          if (toWav && !/\.wav$/i.test(file.name)) {
+            update(item.key, { converting: true });
+            const buf = await decodeFromFile(file);
+            file = new File([encodeWav(buf)], file.name.replace(/\.[^.]+$/, '') + '.wav', { type: 'audio/wav' });
+            update(item.key, { converting: false });
+          }
+          const duration = await readDuration(file);
           const { track } = await api.uploadTrack(
-            item.file,
+            file,
             { title: item.title || titleFromFile(item.file.name), tags: tagList, release_date: releaseDate || null, duration },
             (p) => update(item.key, { progress: p })
           );
@@ -199,6 +208,11 @@ export function UploadModal({ onClose, onUploaded }) {
             {items.find((i) => i.status === 'error')?.error}. Press Upload again to retry the failed files.
           </p>
         )}
+
+        <label className="flex items-center gap-2 text-sm text-ink-200">
+          <input type="checkbox" checked={toWav} onChange={(e) => setToWav(e.target.checked)} className="h-4 w-4 accent-[#e8b94a]" disabled={running} />
+          Convert MP3s and other files to WAV when uploading
+        </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

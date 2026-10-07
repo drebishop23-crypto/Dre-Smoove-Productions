@@ -6,7 +6,7 @@ import { usePlayer } from '@/components/PlayerProvider';
 import CoverGenerator from '@/components/CoverGenerator';
 import ReleaseModal from '@/components/ReleaseModal';
 import { EditModal, LyricsModal, ShareModal, StemsModal } from '@/components/SongModals';
-import { downloadTrack } from '@/lib/audio';
+import { decodeFromUrl, downloadTrack, encodeWav, safeFilename } from '@/lib/audio';
 
 // Everything the ••• song menu can do, plus the dialogs it opens.
 // Pages pass callbacks so their own song lists stay up to date.
@@ -93,6 +93,20 @@ export function useSongActions({ onUpdate, onRemove, onRestore } = {}) {
       try {
         flash('Preparing download…');
         await downloadTrack(t, format);
+      } catch (e) {
+        flash(e.message);
+      }
+    },
+    // Replace the song's MP3 (or other format) with a WAV version
+    convertToWav: async (t) => {
+      try {
+        flash(`Converting “${t.title}” to WAV…`);
+        const buf = await decodeFromUrl(t.url);
+        const file = new File([encodeWav(buf)], `${safeFilename(t.title)}.wav`, { type: 'audio/wav' });
+        const path = await api.uploadAudio(file);
+        const { track } = await api.updateTrack(t.id, { audio_path: path, format: 'wav' });
+        updated(track);
+        flash(`“${t.title}” is now WAV`);
       } catch (e) {
         flash(e.message);
       }
