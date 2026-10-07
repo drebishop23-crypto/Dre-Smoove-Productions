@@ -22,7 +22,7 @@ export default function SyncedLyrics({ track, className = '' }) {
   if (!lines.length) return null;
 
   return (
-    <div ref={listRef} className={`relative overflow-y-auto scroll-smooth ${className}`}>
+    <div ref={listRef} className={`relative overflow-y-auto overflow-x-hidden scroll-smooth px-1 ${className}`}>
       <div className="h-[30%]" aria-hidden="true" />
       {lines.map((l, i) => {
         const state = i === idx ? 'now' : i < idx ? 'past' : 'next';
@@ -32,9 +32,9 @@ export default function SyncedLyrics({ track, className = '' }) {
             type="button"
             data-line={i}
             onClick={() => playingThis && duration && seek(l.t / duration)}
-            className={`block w-full py-1.5 text-left font-display font-bold leading-snug transition-all duration-300 ${
+            className={`block w-full origin-left whitespace-normal break-words py-1.5 pr-2 text-left font-display font-bold leading-snug transition-all duration-300 ${
               state === 'now'
-                ? 'scale-[1.02] text-xl text-gold sm:text-2xl'
+                ? 'text-xl text-gold sm:text-2xl'
                 : state === 'past'
                   ? 'text-lg text-ink-500 sm:text-xl'
                   : 'text-lg text-ink-300 sm:text-xl'
