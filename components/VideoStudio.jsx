@@ -468,9 +468,9 @@ export default function VideoStudio({ trackId }) {
               <p className="mt-3 text-sm text-ink-200">
                 Planned {plan.count} shots{plan.bpm ? ` at about ${plan.bpm} BPM` : ''}, with {plan.peaks} big {plan.peaks === 1 ? "moment" : "moments"}.{' '}
                 {plan.lyricsTimed
-                  ? 'Each shot matches the exact line being sung.'
-                  : 'Tip: open the lyrics while the song plays so they sync, then plan again for shots that hit each line exactly.'}{' '}
-                Edit any shot below, then generate.
+                  ? 'Each shot acts out the line being sung at that moment.'
+                  : 'Tip: open the lyrics while the song plays so they sync, then plan again so each shot lands right on its line.'}{' '}
+                Every shot is moving video (people, places, camera motion), not words on screen. Edit any shot below, then generate.
               </p>
             )}
           </div>
@@ -498,7 +498,7 @@ export default function VideoStudio({ trackId }) {
             />
             <p className="mt-2 text-xs text-ink-500">
               {track.lyrics
-                ? 'Scenes follow your lyrics in order. Edit any line to change that shot.'
+                ? 'Each line describes what the camera shows. The lyrics only guide the story; no text appears in the video. Edit any line to change that shot.'
                 : 'This song has no lyrics saved, so these are general scenes. Add lyrics in the Library to get scenes that follow the song.'}
               {scenes.length < needed && ` With ${scenes.length} scenes the clips repeat to cover the full ${formatTime(duration)}.`}
             </p>
