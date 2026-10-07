@@ -85,6 +85,9 @@ export default function VideoStudio({ trackId }) {
   const [showRelease, setShowRelease] = useState(false);
   const [newVersion, setNewVersion] = useState(false);
   const builtBlob = useRef(null);
+  const [notes, setNotes] = useState('');
+  const [directing, setDirecting] = useState(null); // status text while planning
+  const [plan, setPlan] = useState(null); // { bpm, peaks, lyricsTimed }
 
   const loadTrack = useCallback(async () => {
     const { tracks } = await api.listTracks();
@@ -134,6 +137,33 @@ export default function VideoStudio({ trackId }) {
   const duration = Number(track?.duration) || 0;
   const needed = duration ? Math.ceil(duration / CLIP_SECONDS) : scenes.length;
   const cost = scenes.length * CLIP_PRICE;
+
+  // AI Director: listen to the song, then plan one shot per ~5 seconds that follows it
+  const direct = async () => {
+    setError(null);
+    try {
+      const { analyzeSong } = await import('@/lib/songAnalysis');
+      const a = await analyzeSong(track, CLIP_SECONDS, setDirecting);
+      setDirecting(`Planning ${a.segments.length} shots to match the song`);
+      const res = await api.directVideo({
+        title: track.title,
+        tags: track.tags || [],
+        bpm: a.bpm,
+        duration: a.duration,
+        segments: a.segments,
+        notes: notes.trim(),
+      });
+      const fallback = buildScenes(track, a.segments.length);
+      const shots = a.segments.map((_, i) => res.scenes[i] || fallback[i]);
+      if (res.look) setLook(res.look);
+      setScenesText(shots.join('\n'));
+      setPlan({ bpm: a.bpm, peaks: a.segments.filter((x) => x.level === 'peak').length, lyricsTimed: a.lyricsTimed, count: shots.length });
+    } catch (e) {
+      setError(e.message || 'The director could not plan this song.');
+    } finally {
+      setDirecting(null);
+    }
+  };
 
   const start = async () => {
     setStarting(true);
@@ -413,6 +443,37 @@ export default function VideoStudio({ trackId }) {
       {!job && !hasVideo && !builtUrl && (
         <section className="panel flex flex-col gap-5 p-5">
           <h2 className="font-display text-lg font-bold text-white">Or make a full AI music video</h2>
+          <div className="rounded-xl border border-gold/40 bg-gold/5 p-4">
+            <div className="flex items-center gap-2 font-semibold text-gold">
+              <Clapperboard className="h-4 w-4" /> AI Director
+            </div>
+            <p className="mt-1 text-sm text-ink-300">
+              The AI listens to the song (its tempo, the quiet and big moments, and the words as they're sung) and plans every shot to follow it, start to finish.
+            </p>
+            <input
+              className="field mt-3"
+              placeholder="Your idea for the video (optional), e.g. a tribute to my nephew, family memories, warm and hopeful"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={!!directing}
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button type="button" className="btn-primary" onClick={direct} disabled={!!directing}>
+                {directing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {directing ? `${directing}…` : 'Listen to the song & plan my video'}
+              </button>
+              <span className="text-xs text-ink-500">Planning costs under a penny. You review the shots before anything is made.</span>
+            </div>
+            {plan && (
+              <p className="mt-3 text-sm text-ink-200">
+                Planned {plan.count} shots{plan.bpm ? ` at about ${plan.bpm} BPM` : ''}, with {plan.peaks} big {plan.peaks === 1 ? "moment" : "moments"}.{' '}
+                {plan.lyricsTimed
+                  ? 'Each shot matches the exact line being sung.'
+                  : 'Tip: open the lyrics while the song plays so they sync, then plan again for shots that hit each line exactly.'}{' '}
+                Edit any shot below, then generate.
+              </p>
+            )}
+          </div>
           <div>
             <label htmlFor="video-look" className="label mb-2 block">Look &amp; feel for the whole video</label>
             <textarea id="video-look" rows={2} className="field resize-y" value={look} onChange={(e) => setLook(e.target.value)} />
