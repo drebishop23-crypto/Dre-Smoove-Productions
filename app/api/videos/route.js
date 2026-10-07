@@ -1,5 +1,6 @@
 import { admin, jsonError } from '@/lib/supabase-admin';
 import { CLIP_SECONDS } from '@/lib/replicate';
+import { deleteObject } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +55,34 @@ export async function POST(req) {
       if (cErr) throw cErr;
     }
     return Response.json({ job, clip_seconds: CLIP_SECONDS });
+  } catch (e) {
+    return jsonError(e.message, 500);
+  }
+}
+
+// DELETE /api/videos?track_id=… — delete the song's music video and every AI clip made for it
+export async function DELETE(req) {
+  try {
+    const trackId = new URL(req.url).searchParams.get('track_id');
+    if (!trackId) return jsonError('track_id is required.');
+    const sb = admin();
+    const { data: track, error } = await sb.from('sp_tracks').select('id, video_path').eq('id', trackId).single();
+    if (error || !track) return jsonError('Song not found.', 404);
+
+    const { data: jobs } = await sb.from('sp_video_jobs').select('id').eq('track_id', trackId);
+    const jobIds = (jobs || []).map((j) => j.id);
+    if (jobIds.length) {
+      const { data: clips } = await sb.from('sp_video_clips').select('r2_path').in('job_id', jobIds);
+      await Promise.all((clips || []).filter((c) => c.r2_path).map((c) => deleteObject(c.r2_path).catch(() => {})));
+      await sb.from('sp_video_jobs').delete().in('id', jobIds); // clips go with them
+    }
+
+    if (track.video_path) {
+      const { error: upErr } = await sb.from('sp_tracks').update({ video_path: null }).eq('id', trackId);
+      if (upErr) throw upErr;
+      await deleteObject(track.video_path).catch(() => {});
+    }
+    return Response.json({ ok: true });
   } catch (e) {
     return jsonError(e.message, 500);
   }

@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  Trash2,
   Upload,
   Wand2,
 } from 'lucide-react';
@@ -347,6 +348,27 @@ export default function VideoStudio({ trackId }) {
             {!inProgress && (
               <button type="button" className="btn text-ink-400 hover:text-white" onClick={() => { setNewVersion(true); setBuiltUrl(null); setJob(null); setProgress(null); }}>
                 <RotateCcw className="h-4 w-4" /> Make a new version
+              </button>
+            )}
+            {hasVideo && (
+              <button
+                type="button"
+                className="btn ml-auto text-red-300 hover:text-red-200"
+                onClick={async () => {
+                  if (!window.confirm(`Delete the music video for “${track.title}”? The song stays. This can't be undone.`)) return;
+                  try {
+                    await api.deleteVideo(track.id);
+                    setTrack((t) => ({ ...t, video_path: null, video_url: null }));
+                    setBuiltUrl(null);
+                    builtBlob.current = null;
+                    setJob(null);
+                    setProgress(null);
+                  } catch (e) {
+                    setError(e.message);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Delete video
               </button>
             )}
           </div>

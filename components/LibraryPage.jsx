@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  Clapperboard,
   Folder,
   FolderPlus,
   Heart,
@@ -43,6 +44,7 @@ const TABS = [
   ['workspaces', 'Workspaces'],
   ['projects', 'Studio Projects'],
   ['art', 'Cover Art'],
+  ['videos', 'Videos'],
   ['hooks', 'Hooks'],
   ['liked-hooks', 'Liked Hooks'],
   ['history', 'History'],
@@ -226,6 +228,7 @@ export default function LibraryPage() {
   const [hookModal, setHookModal] = useState(false);
   const [trash, setTrash] = useState(null);
   const [trashBusy, setTrashBusy] = useState(null);
+  const [videoBusy, setVideoBusy] = useState(null);
 
   const { actions, modals } = useSongActions({
     onUpdate: (t) => {
@@ -616,6 +619,47 @@ export default function LibraryPage() {
           </div>
         )}
       </>
+    );
+  }
+
+  if (tab === 'videos') {
+    const withVideo = songs.filter((s) => s.video_url);
+    const deleteVideo = async (t) => {
+      if (!window.confirm(`Delete the music video for “${t.title}”? The song stays. This can't be undone.`)) return;
+      setVideoBusy(t.id);
+      try {
+        await api.deleteVideo(t.id);
+        setSongs((s) => s.map((x) => (x.id === t.id ? { ...x, video_path: null, video_url: null } : x)));
+        actions.flash(`Deleted the video for “${t.title}”`);
+      } catch (e) {
+        actions.flash(e.message);
+      } finally {
+        setVideoBusy(null);
+      }
+    };
+    body = loading && !songs.length ? (
+      <p className="flex items-center gap-2 px-2 py-10 text-sm text-ink-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading</p>
+    ) : withVideo.length ? (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {withVideo.map((t) => (
+          <div key={t.id} className="panel overflow-hidden">
+            <video src={t.video_url} controls playsInline preload="metadata" className="aspect-video w-full bg-black" />
+            <div className="flex items-center gap-2 p-3">
+              <Link href={`/video/${t.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold text-white hover:text-gold">{t.title}</Link>
+              <button
+                type="button"
+                className="btn-ghost h-9 rounded-full px-3 text-xs text-red-300 hover:!border-red-400 hover:text-red-200"
+                disabled={videoBusy === t.id}
+                onClick={() => deleteVideo(t)}
+              >
+                {videoBusy === t.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete video
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <Empty icon={Clapperboard}>No music videos yet. Open a song's ••• menu and choose Music Video to make or upload one.</Empty>
     );
   }
 
