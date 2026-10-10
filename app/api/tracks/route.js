@@ -63,7 +63,13 @@ export async function POST(req) {
       if (body[k]) row[k] = body[k];
     }
     if ('instrumental' in body) row.instrumental = !!body.instrumental;
-    const { data, error } = await sb.from('sp_tracks').insert(row).select().single();
+    if (body.recorded_date) row.recorded_date = body.recorded_date;
+    let { data, error } = await sb.from('sp_tracks').insert(row).select().single();
+    // Still works before update-6.sql adds the recorded_date column
+    if (error && /recorded_date/.test(error.message) && row.recorded_date) {
+      delete row.recorded_date;
+      ({ data, error } = await sb.from('sp_tracks').insert(row).select().single());
+    }
     if (error) throw error;
     const [track] = await withUrls(sb, [data]);
     return Response.json({ track });

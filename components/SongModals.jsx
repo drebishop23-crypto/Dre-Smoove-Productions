@@ -25,6 +25,7 @@ import CoverGenerator from '@/components/CoverGenerator';
 import SyncedLyrics from '@/components/SyncedLyrics';
 import LyricSync from '@/components/LyricSync';
 import { decodeFromFile, decodeFromUrl, downloadBlob, encodeWav, formatTime, peaksFromBuffer, safeFilename } from '@/lib/audio';
+import { fileDate } from '@/lib/sorts';
 
 const AUDIO_ACCEPT = 'audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.aif,.aiff';
 
@@ -53,7 +54,7 @@ export function UploadModal({ onClose, onUploaded }) {
     const files = [...fileList].filter((f) => f.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|flac|ogg|aiff?)$/i.test(f.name));
     setItems((cur) => [
       ...cur,
-      ...files.map((file) => ({ key: `${file.name}-${file.size}-${Math.random()}`, file, title: titleFromFile(file.name), status: 'ready' })),
+      ...files.map((file) => ({ key: `${file.name}-${file.size}-${Math.random()}`, file, title: titleFromFile(file.name), recorded: fileDate(file), status: 'ready' })),
     ]);
   };
 
@@ -94,7 +95,7 @@ export function UploadModal({ onClose, onUploaded }) {
           const duration = await readDuration(file);
           const { track } = await api.uploadTrack(
             file,
-            { title: item.title || titleFromFile(item.file.name), tags: tagList, release_date: releaseDate || null, duration },
+            { title: item.title || titleFromFile(item.file.name), tags: tagList, release_date: releaseDate || null, recorded_date: item.recorded || null, duration },
             (p) => update(item.key, { progress: p })
           );
           update(item.key, { status: 'done' });
@@ -180,6 +181,15 @@ export function UploadModal({ onClose, onUploaded }) {
                   disabled={i.status !== 'ready' && i.status !== 'error'}
                   onChange={(e) => update(i.key, { title: e.target.value })}
                 />
+                <input
+                  type="date"
+                  aria-label="Date recorded"
+                  title="Date recorded"
+                  className="w-[8.5rem] shrink-0 rounded-lg border border-ink-700 bg-ink-900 px-2 py-1 font-mono text-[11px] text-ink-200"
+                  value={i.recorded || ''}
+                  disabled={i.status !== 'ready' && i.status !== 'error'}
+                  onChange={(e) => update(i.key, { recorded: e.target.value })}
+                />
                 <span className="hidden font-mono text-[11px] text-ink-500 sm:inline">
                   {(i.file.size / 1048576).toFixed(1)} MB
                 </span>
@@ -202,6 +212,9 @@ export function UploadModal({ onClose, onUploaded }) {
               </li>
             ))}
           </ul>
+        )}
+        {items.length > 0 && (
+          <p className="-mt-2 text-xs text-ink-500">The date next to each song is when it was recorded. It starts as the file's date; change it if you know the real one.</p>
         )}
         {items.some((i) => i.status === 'error') && (
           <p className="text-xs text-neon-pink">
@@ -237,6 +250,7 @@ export function EditModal({ track, onClose, onSaved }) {
   const [artist, setArtist] = useState(track.artist || '');
   const [tags, setTags] = useState((track.tags || []).join(', '));
   const [releaseDate, setReleaseDate] = useState(track.release_date ? String(track.release_date).slice(0, 10) : '');
+  const [recordedDate, setRecordedDate] = useState(track.recorded_date ? String(track.recorded_date).slice(0, 10) : '');
   const [lyrics, setLyrics] = useState(track.lyrics || '');
   const [links, setLinks] = useState({
     spotify_url: track.spotify_url || '',
@@ -263,6 +277,7 @@ export function EditModal({ track, onClose, onSaved }) {
         artist: artist.trim() || 'Dré Smoove',
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         release_date: releaseDate || null,
+        ...(recordedDate !== (track.recorded_date ? String(track.recorded_date).slice(0, 10) : '') ? { recorded_date: recordedDate || null } : {}),
         lyrics: lyrics.trim() ? lyrics : null,
         ...links,
       });
@@ -331,6 +346,10 @@ export function EditModal({ track, onClose, onSaved }) {
           <div>
             <label htmlFor="edit-release" className="label mb-2 block">Release date</label>
             <input id="edit-release" type="date" className="field" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="edit-recorded" className="label mb-2 block">Date recorded</label>
+            <input id="edit-recorded" type="date" className="field" value={recordedDate} onChange={(e) => setRecordedDate(e.target.value)} />
           </div>
         </div>
         <div>

@@ -14,7 +14,7 @@ const EDITABLE = [
   'title', 'artist', 'tags', 'release_date', 'artwork_path', 'peaks', 'duration', 'lyrics',
   'video_path', 'spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url', 'lyrics_synced',
   'is_public', 'pinned', 'allow_remixes', 'allow_comments', 'liked', 'disliked', 'workspace_id', 'instrumental',
-  'audio_path', 'format',
+  'audio_path', 'format', 'recorded_date',
 ];
 
 // GET /api/tracks/:id — one song, plus its versions
@@ -52,6 +52,7 @@ export async function PATCH(req, { params }) {
     const patch = {};
     for (const k of EDITABLE) if (k in body) patch[k] = body[k];
     if ('release_date' in patch && !patch.release_date) patch.release_date = null;
+    if ('recorded_date' in patch && !patch.recorded_date) patch.recorded_date = null;
     for (const k of ['spotify_url', 'apple_music_url', 'soundcloud_url', 'youtube_url']) {
       if (k in patch) patch[k] = (patch[k] || '').trim() || null;
     }

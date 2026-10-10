@@ -27,6 +27,7 @@ import { useSongActions } from '@/components/SongActions';
 import Modal from '@/components/Modal';
 import CoverGenerator from '@/components/CoverGenerator';
 import { formatTime } from '@/lib/audio';
+import { byRecordedNewest, byTitle } from '@/lib/sorts';
 
 const PLATFORMS = [
   ['spotify_url', 'Spotify'],
@@ -292,9 +293,11 @@ export default function ProfilePage() {
   const sorted = useMemo(() => {
     const list = [...tracks];
     if (sort === 'popular') list.sort((a, b) => (b.plays || 0) - (a.plays || 0) || String(b.created_at).localeCompare(String(a.created_at)));
+    else if (sort === 'az') list.sort(byTitle);
+    else if (sort === 'recorded') list.sort(byRecordedNewest);
     else list.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-    // Pinned songs always come first, like Suno
-    list.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
+    // Pinned songs come first, like Suno (not when sorting A–Z or by date recorded)
+    if (sort === 'popular' || sort === 'newest') list.sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
     return list;
   }, [tracks, sort]);
 
@@ -406,10 +409,12 @@ export default function ProfilePage() {
       <section className="panel p-3 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
           <h2 className="font-display text-xl font-bold text-white">Songs</h2>
-          <div role="tablist" className="grid grid-cols-2 rounded-xl border border-ink-700 bg-ink-850 p-1 text-sm">
+          <div role="tablist" className="grid grid-cols-4 rounded-xl border border-ink-700 bg-ink-850 p-1 text-sm">
             {[
               ['popular', 'Popular'],
               ['newest', 'Newest'],
+              ['az', 'A–Z'],
+              ['recorded', 'Recorded'],
             ].map(([k, label]) => (
               <button
                 key={k}

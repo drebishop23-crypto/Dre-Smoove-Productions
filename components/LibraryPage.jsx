@@ -37,6 +37,7 @@ import Modal from '@/components/Modal';
 import { UploadModal } from '@/components/SongModals';
 import { useSongActions } from '@/components/SongActions';
 import { formatTime } from '@/lib/audio';
+import { byRecordedNewest, byRecordedOldest, byTitle } from '@/lib/sorts';
 
 const TABS = [
   ['songs', 'Songs'],
@@ -63,11 +64,14 @@ const FILTERS = [
 ];
 
 const SORTS = {
-  new: ['Newest', (a, b) => String(b.created_at).localeCompare(String(a.created_at))],
-  old: ['Oldest', (a, b) => String(a.created_at).localeCompare(String(b.created_at))],
+  new: ['Newest added', (a, b) => String(b.created_at).localeCompare(String(a.created_at))],
+  old: ['Oldest added', (a, b) => String(a.created_at).localeCompare(String(b.created_at))],
+  title: ['Title A–Z', byTitle],
+  titleDesc: ['Title Z–A', (a, b) => byTitle(b, a)],
+  recNew: ['Date recorded (newest)', byRecordedNewest],
+  recOld: ['Date recorded (oldest)', byRecordedOldest],
   plays: ['Most played', (a, b) => (b.plays || 0) - (a.plays || 0)],
   likes: ['Most liked', (a, b) => (b.likes || 0) - (a.likes || 0)],
-  title: ['Title A–Z', (a, b) => a.title.localeCompare(b.title)],
 };
 
 function Dropdown({ label, icon: Icon, children, count }) {
